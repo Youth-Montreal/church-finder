@@ -15,59 +15,89 @@
   <body>
     <header>
       <div>
-        <h1>Youth & Young Adult Church Map — Montreal</h1>
-        <p>Find Bible studies, prayer meetings, church services, and fellowship in the next 7 days.</p>
+        <h1 data-i18n="appTitle">Youth & Young Adult Church Map — Montreal</h1>
+        <p data-i18n="appSubtitle">Find Bible studies, prayer meetings, church services, and fellowship in the next 7 days.</p>
       </div>
-      <button id="toggle-admin" type="button">ADM Mode</button>
+      <div class="header-controls">
+        <label class="language-picker">
+          <span data-i18n="language">Language</span>
+          <select id="language-select">
+            <option value="en">English</option>
+            <option value="fr-CA">Français (Canada)</option>
+            <option value="es-LA">Español (LatAm)</option>
+            <option value="it">Italiano</option>
+            <option value="pt-BR">Português (Brasil)</option>
+            <option value="ko">한국어</option>
+            <option value="zh">中文</option>
+            <option value="uk">Українська</option>
+            <option value="he">עברית</option>
+          </select>
+        </label>
+        <button id="toggle-admin" type="button" data-i18n="admMode">ADM Mode</button>
+      </div>
     </header>
 
     <main>
       <section id="map" aria-label="Map of churches in Montreal"></section>
 
       <aside>
-        <h2>Church details</h2>
-        <p id="empty-state">Click a marker on the map to view details.</p>
+        <h2 data-i18n="churchDetails">Church details</h2>
+        <p id="empty-state" data-i18n="emptyState">Click a marker on the map to view details.</p>
         <div id="details" class="hidden"></div>
 
         <section id="admin-panel" class="hidden">
-          <h3>Add / update church</h3>
+          <h3 id="admin-title" data-i18n="addUpdateChurch">Add / update church</h3>
           <form id="church-form">
+            <input type="hidden" name="churchId" />
             <label>
-              Church name
+              <span data-i18n="churchName">Church name</span>
               <input name="name" required />
             </label>
             <label>
-              Latitude
+              <span data-i18n="address">Address</span>
+              <input name="address" />
+            </label>
+            <label>
+              <span data-i18n="latitude">Latitude</span>
               <input type="number" step="any" name="lat" required />
             </label>
             <label>
-              Longitude
+              <span data-i18n="longitude">Longitude</span>
               <input type="number" step="any" name="lng" required />
             </label>
+            <p class="help-text" data-i18n="mapClickHint">When editing, click the map to capture coordinates and address automatically.</p>
+            <button id="toggle-map-capture" type="button" data-i18n="startMapCapture">Enable map capture</button>
             <label>
-              Website
+              <span data-i18n="languagesSpoken">Languages spoken</span>
+              <input name="languages" placeholder="English, Français" />
+            </label>
+            <label>
+              <span data-i18n="website">Website</span>
               <input type="url" name="website" />
             </label>
             <label>
-              Instagram
+              <span data-i18n="instagram">Instagram</span>
               <input type="url" name="instagram" />
             </label>
             <label>
-              Facebook
+              <span data-i18n="facebook">Facebook</span>
               <input type="url" name="facebook" />
             </label>
             <label>
-              WhatsApp
+              <span data-i18n="whatsapp">WhatsApp</span>
               <input type="url" name="whatsapp" />
             </label>
 
             <fieldset>
-              <legend>Gatherings (next 7 days)</legend>
+              <legend data-i18n="gatherings">Gatherings (next 7 days)</legend>
               <div id="events-list"></div>
-              <button id="add-event" type="button">+ Add gathering</button>
+              <button id="add-event" type="button" data-i18n="addGathering">+ Add gathering</button>
             </fieldset>
 
-            <button type="submit">Save church</button>
+            <div class="admin-actions">
+              <button type="submit" data-i18n="saveChurch">Save church</button>
+              <button id="cancel-edit" type="button" class="secondary" data-i18n="cancelEdit">Cancel edit</button>
+            </div>
           </form>
         </section>
       </aside>

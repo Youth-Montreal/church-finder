@@ -6,11 +6,14 @@ Simple web app to help youth and young adults in Montreal discover nearby church
 
 - Interactive map of Montreal churches using Leaflet + OpenStreetMap (drag/swipe to move, pinch or scroll to zoom).
 - Click a church marker to see:
-  - church name
+  - church name and address
   - gatherings in the next 7 days
   - map deep-link for directions
   - website + social links (Instagram, Facebook, WhatsApp) when available
-- ADM mode to add new churches and events.
+  - languages spoken
+- ADM mode to add and edit church pins.
+- In ADM mode, enable map capture and click the map to auto-fill coordinates and reverse-geocoded address.
+- Interface language selector with support for: English, French (CA), Spanish (LatAm), Italian, Portuguese (BR), Korean, Chinese, Ukrainian, Hebrew.
 - Data persistence in `localStorage` for quick prototyping.
 
 ## Run locally
