@@ -6,11 +6,12 @@ import { ADM_PASSCODE } from '../config.js';
 const todayDate = () => new Date().toISOString().slice(0, 10);
 const hostCode = () => `H-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
-function addEventRow(eventsList, eventTemplate, event = { date: todayDate(), time: '19:00', type: '', recurrence: 'none', until: '' }) {
+function addEventRow(eventsList, eventTemplate, event = { date: todayDate(), time: '19:00', type: '', ageGroup: 'all', recurrence: 'none', until: '' }) {
   const node = eventTemplate.content.firstElementChild.cloneNode(true);
   node.querySelector('[name="date"]').value = event.date;
   node.querySelector('[name="time"]').value = event.time;
   node.querySelector('[name="type"]').value = event.type;
+  node.querySelector('[name="ageGroup"]').value = event.ageGroup || 'all';
   node.querySelector('[name="recurrence"]').value = event.recurrence || 'none';
   node.querySelector('[name="until"]').value = event.until || '';
   node.querySelector('.remove-event').addEventListener('click', () => node.remove());
@@ -68,6 +69,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
   const resetForm = () => {
     elements.churchForm.reset();
+    elements.adminStatus.textContent = '';
     elements.churchForm.elements.churchId.value = '';
     elements.eventsList.innerHTML = '';
     addEventRow(elements.eventsList, elements.eventTemplate);
@@ -205,6 +207,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
         date: node.querySelector('[name="date"]').value,
         time: node.querySelector('[name="time"]').value,
         type: node.querySelector('[name="type"]').value.trim(),
+        ageGroup: node.querySelector('[name="ageGroup"]').value || 'all',
         recurrence: node.querySelector('[name="recurrence"]').value || 'none',
         until: node.querySelector('[name="until"]').value || ''
       }))

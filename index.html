@@ -86,6 +86,24 @@
 
     <main id="map-section" class="view-section hidden">
       <div class="map-column">
+        <section class="map-filters">
+          <label><span data-i18n="filterLanguage">Language</span><input id="map-filter-language" placeholder="English, Français..." /></label>
+          <label><span data-i18n="eventType">Event type</span><input id="map-filter-type" placeholder="Bible study, prayer..." /></label>
+          <label>
+            <span data-i18n="ageGroup">Age group</span>
+            <select id="map-filter-age">
+              <option value="" data-i18n="allAges">All</option>
+              <option value="teens" data-i18n="ageTeens">Teens</option>
+              <option value="young-adults" data-i18n="ageYoungAdults">Young adults</option>
+              <option value="all" data-i18n="ageMixed">Mixed</option>
+            </select>
+          </label>
+          <div class="finder-actions">
+            <button id="map-apply" type="button" data-i18n="applyFilters">Apply filters</button>
+            <button id="map-clear" type="button" class="secondary" data-i18n="clearFilters">Clear</button>
+          </div>
+          <p id="map-filter-status" class="help-text"></p>
+        </section>
         <section id="map" aria-label="Community churches map in Montreal"></section>
       </div>
 
@@ -143,6 +161,28 @@
           <label><span data-i18n="search">Search</span><input id="calendar-keyword" placeholder="Church, address, event type" /></label>
           <label><span data-i18n="eventType">Event type</span><input id="calendar-type" placeholder="Bible study, service..." /></label>
           <label><span data-i18n="language">Language</span><input id="calendar-language" placeholder="English, Français..." /></label>
+          <label>
+            <span data-i18n="ageGroup">Age group</span>
+            <select id="calendar-age">
+              <option value="" data-i18n="allAges">All</option>
+              <option value="teens" data-i18n="ageTeens">Teens</option>
+              <option value="young-adults" data-i18n="ageYoungAdults">Young adults</option>
+              <option value="all" data-i18n="ageMixed">Mixed</option>
+            </select>
+          </label>
+          <label>
+            <span data-i18n="weekday">Weekday</span>
+            <select id="calendar-weekday">
+              <option value="" data-i18n="anyDay">Any day</option>
+              <option value="0" data-i18n="sun">Sunday</option>
+              <option value="1" data-i18n="mon">Monday</option>
+              <option value="2" data-i18n="tue">Tuesday</option>
+              <option value="3" data-i18n="wed">Wednesday</option>
+              <option value="4" data-i18n="thu">Thursday</option>
+              <option value="5" data-i18n="fri">Friday</option>
+              <option value="6" data-i18n="sat">Saturday</option>
+            </select>
+          </label>
           <label><span data-i18n="from">From</span><input id="calendar-from" type="date" /></label>
           <label><span data-i18n="to">To</span><input id="calendar-to" type="date" /></label>
           <button id="calendar-apply" type="button" data-i18n="applyFilters">Apply filters</button>
@@ -192,6 +232,11 @@
         <input type="date" name="date" required />
         <input type="time" name="time" required />
         <input type="text" name="type" placeholder="Bible study / Service" required />
+        <select name="ageGroup">
+          <option value="all">All ages</option>
+          <option value="teens">Teens</option>
+          <option value="young-adults">Young adults</option>
+        </select>
         <select name="recurrence">
           <option value="none">One-time</option>
           <option value="weekly">Weekly</option>

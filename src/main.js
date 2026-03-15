@@ -29,11 +29,19 @@ const elements = {
   languageSelect: document.querySelector('#language-select'),
   finderForm: document.querySelector('#finder-form'),
   openMapButton: document.querySelector('#open-map'),
+  mapFilterLanguage: document.querySelector('#map-filter-language'),
+  mapFilterType: document.querySelector('#map-filter-type'),
+  mapFilterAge: document.querySelector('#map-filter-age'),
+  mapApply: document.querySelector('#map-apply'),
+  mapClear: document.querySelector('#map-clear'),
+  mapFilterStatus: document.querySelector('#map-filter-status'),
   tabButtons: Array.from(document.querySelectorAll('.tab-btn')),
   sections: Array.from(document.querySelectorAll('.view-section')),
   calendarKeyword: document.querySelector('#calendar-keyword'),
   calendarType: document.querySelector('#calendar-type'),
   calendarLanguage: document.querySelector('#calendar-language'),
+  calendarAge: document.querySelector('#calendar-age'),
+  calendarWeekday: document.querySelector('#calendar-weekday'),
   calendarFrom: document.querySelector('#calendar-from'),
   calendarTo: document.querySelector('#calendar-to'),
   calendarApply: document.querySelector('#calendar-apply'),
@@ -51,6 +59,7 @@ const state = {
   hostRequests: [],
   markers: new Map(),
   filteredIds: null,
+  mapFilteredIds: null,
   language: localStorage.getItem(LANGUAGE_KEY) || 'en',
   selectedChurchId: null,
   mapCaptureEnabled: false,
@@ -106,6 +115,39 @@ function setupCalendar() {
   elements.calendarApply.addEventListener('click', () => renderCalendarList({ state, elements }));
 }
 
+function setupMapFilters() {
+  const matchesMapFilters = (church) => {
+    const language = elements.mapFilterLanguage.value.trim().toLowerCase();
+    const eventType = elements.mapFilterType.value.trim().toLowerCase();
+    const ageGroup = elements.mapFilterAge.value;
+
+    const byLanguage = !language || (church.languages || []).join(' ').toLowerCase().includes(language);
+    const byEventType =
+      !eventType ||
+      (church.events || []).some((event) => (event.type || '').toLowerCase().includes(eventType));
+    const byAge = !ageGroup || (church.events || []).some((event) => (event.ageGroup || 'all') === ageGroup);
+
+    return byLanguage && byEventType && byAge;
+  };
+
+  const applyMapFilters = () => {
+    const matches = state.churches.filter(matchesMapFilters);
+    state.mapFilteredIds = new Set(matches.map((church) => church.id));
+    rerenderMarkers();
+    elements.mapFilterStatus.textContent = `${matches.length} ${t(state, 'churchesMatchingFilters')}`;
+  };
+
+  elements.mapApply.addEventListener('click', applyMapFilters);
+  elements.mapClear.addEventListener('click', () => {
+    elements.mapFilterLanguage.value = '';
+    elements.mapFilterType.value = '';
+    elements.mapFilterAge.value = '';
+    state.mapFilteredIds = null;
+    elements.mapFilterStatus.textContent = '';
+    rerenderMarkers();
+  });
+}
+
 function setupPublicForms() {
   elements.suggestionForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -153,6 +195,7 @@ async function init() {
 
   elements.openMapButton.addEventListener('click', () => {
     state.filteredIds = null;
+    state.mapFilteredIds = null;
     rerenderMarkers();
     resetMapView(map);
     switchSection('map-section');
@@ -171,6 +214,7 @@ async function init() {
 
   setupTabs();
   setupCalendar();
+  setupMapFilters();
   setupPublicForms();
   switchSection('landing-section');
   rerenderMarkers();
