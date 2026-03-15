@@ -67,6 +67,33 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       : `<p class="help-text">${t(state, 'noPendingHostRequests')}</p>`;
   };
 
+  const renderChurchManager = () => {
+    if (!elements.churchManagerList) return;
+
+    const q = elements.churchManagerSearch?.value.trim().toLowerCase() || '';
+    const rows = state.churches.filter((church) => {
+      const text = `${church.name} ${church.address || ''} ${(church.languages || []).join(' ')}`.toLowerCase();
+      return !q || text.includes(q);
+    });
+
+    elements.churchManagerList.innerHTML = rows.length
+      ? rows
+          .map(
+            (church) => `
+      <article class="manager-item">
+        <p><strong>${church.name}</strong></p>
+        <p>${church.address || ''}</p>
+        <div class="queue-actions" data-id="${church.id}" data-resource="church">
+          <button type="button" data-action="edit">${t(state, 'editPin')}</button>
+          <button type="button" class="secondary" data-action="delete">${t(state, 'delete')}</button>
+        </div>
+      </article>
+    `
+          )
+          .join('')
+      : `<p class="help-text">${t(state, 'noChurchesFound')}</p>`;
+  };
+
   const resetForm = () => {
     elements.churchForm.reset();
     elements.adminStatus.textContent = '';
@@ -112,6 +139,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     state.isAdminMode = false;
     elements.adminPanel.classList.remove('hidden');
     elements.adminModeration.classList.add('hidden');
+    elements.churchManager.classList.add('hidden');
     elements.toggleAdmin.textContent = t(state, 'admMode');
     elements.toggleHost.textContent = t(state, 'leaveHostMode');
     startEditChurch(church.id);
@@ -155,14 +183,53 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
     elements.adminPanel.classList.toggle('hidden', !state.isAdminMode);
     elements.adminModeration.classList.toggle('hidden', !state.isAdminMode);
+    elements.churchManager.classList.toggle('hidden', !state.isAdminMode);
     elements.toggleAdmin.textContent = state.isAdminMode ? t(state, 'closeAdm') : t(state, 'admMode');
 
-    if (state.isAdminMode) renderModerationQueues();
+    if (state.isAdminMode) {
+      renderModerationQueues();
+      renderChurchManager();
+    }
     if (!state.isAdminMode) resetForm();
 
     if (state.selectedChurchId) {
       const selected = state.churches.find((item) => item.id === state.selectedChurchId);
       if (selected) renderChurchDetails(selected, startEditChurch);
+    }
+  });
+
+  elements.churchManagerSearch?.addEventListener('input', renderChurchManager);
+
+  elements.churchManagerList?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+
+    const wrapper = button.closest('.queue-actions');
+    const churchId = wrapper?.dataset.id;
+    const action = button.dataset.action;
+    if (!churchId) return;
+
+    if (action === 'edit') {
+      startEditChurch(churchId);
+      return;
+    }
+
+    if (action === 'delete') {
+      const church = state.churches.find((item) => item.id === churchId);
+      if (!church) return;
+      if (!confirm(`${t(state, 'deleteChurchConfirm')} ${church.name}?`)) return;
+
+      state.churches = state.churches.filter((item) => item.id !== churchId);
+      await saveChurches(state.churches);
+      state.filteredIds = null;
+      state.mapFilteredIds = null;
+      state.selectedChurchId = null;
+      renderMarkers();
+      renderChurchManager();
+      resetForm();
+      elements.details.classList.add('hidden');
+      elements.emptyState.classList.remove('hidden');
+      elements.adminStatus.textContent = t(state, 'churchDeleted');
     }
   });
 
@@ -243,6 +310,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     await saveChurches(state.churches);
     state.filteredIds = null;
     renderMarkers();
+    renderChurchManager();
     state.selectedChurchId = church.id;
     renderChurchDetails(church, startEditChurch);
 
@@ -260,5 +328,5 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
   addEventRow(elements.eventsList, elements.eventTemplate);
 
-  return { startEditChurch, renderModerationQueues };
+  return { startEditChurch, renderModerationQueues, renderChurchManager };
 }

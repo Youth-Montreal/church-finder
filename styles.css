@@ -286,3 +286,20 @@ fieldset,
 .queue-actions button {
   padding: 0.35rem 0.55rem;
 }
+
+
+.suggest-shortcut {
+  margin-top: 0.6rem;
+  width: 100%;
+}
+
+.manager-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.7rem;
+  padding: 0.65rem;
+  margin-top: 0.55rem;
+}
+
+.manager-item p {
+  margin: 0 0 0.35rem;
+}

@@ -50,7 +50,11 @@ const elements = {
   suggestionForm: document.querySelector('#suggestion-form'),
   suggestionStatus: document.querySelector('#suggestion-status'),
   hostRequestForm: document.querySelector('#host-request-form'),
-  hostRequestStatus: document.querySelector('#host-request-status')
+  hostRequestStatus: document.querySelector('#host-request-status'),
+  churchManager: document.querySelector('#church-manager'),
+  churchManagerSearch: document.querySelector('#church-manager-search'),
+  churchManagerList: document.querySelector('#church-manager-list'),
+  suggestShortcut: document.querySelector('#suggest-shortcut')
 };
 
 const state = {
@@ -89,6 +93,7 @@ const renderDetails = (church, onEdit) => {
 
 let startEditChurch = () => {};
 let renderModerationQueues = () => {};
+let renderChurchManager = () => {};
 
 const rerenderMarkers = () =>
   renderMarkers({
@@ -184,6 +189,7 @@ async function init() {
   });
   startEditChurch = adminController.startEditChurch;
   renderModerationQueues = adminController.renderModerationQueues;
+  renderChurchManager = adminController.renderChurchManager;
 
   attachFinderController({
     state,
@@ -202,6 +208,13 @@ async function init() {
     document.querySelector('#map-section').scrollIntoView({ behavior: 'smooth' });
   });
 
+
+  elements.suggestShortcut?.addEventListener('click', () => {
+    switchSection('contact-section');
+    elements.suggestionForm?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    elements.suggestionForm?.querySelector('input[name="name"]')?.focus();
+  });
+
   elements.languageSelect.value = TRANSLATIONS[state.language] ? state.language : 'en';
   elements.languageSelect.addEventListener('change', () => {
     state.language = elements.languageSelect.value;
@@ -209,6 +222,7 @@ async function init() {
       const church = state.churches.find((item) => item.id === state.selectedChurchId);
       if (church) renderDetails(church, startEditChurch);
       renderModerationQueues();
+      renderChurchManager();
     });
   });
 
@@ -223,6 +237,7 @@ async function init() {
     const church = state.churches.find((item) => item.id === state.selectedChurchId);
     if (church) renderDetails(church, startEditChurch);
     renderModerationQueues();
+    renderChurchManager();
   });
 }
 

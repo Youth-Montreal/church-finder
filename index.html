@@ -105,6 +105,7 @@
           <p id="map-filter-status" class="help-text"></p>
         </section>
         <section id="map" aria-label="Community churches map in Montreal"></section>
+        <button id="suggest-shortcut" class="suggest-shortcut" type="button" data-i18n="suggestChange">+ Suggest an update</button>
       </div>
 
       <aside>
@@ -150,6 +151,15 @@
           <div id="suggestions-queue"></div>
           <h4 data-i18n="pendingHostRequests">Pending host requests</h4>
           <div id="host-queue"></div>
+        </section>
+
+        <section id="church-manager" class="hidden moderation-panel">
+          <h3 data-i18n="manageChurches">Manage churches</h3>
+          <label>
+            <span data-i18n="searchChurches">Search churches</span>
+            <input id="church-manager-search" placeholder="Name, address, language" />
+          </label>
+          <div id="church-manager-list"></div>
         </section>
       </aside>
     </main>

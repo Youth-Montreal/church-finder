@@ -12,7 +12,8 @@ Web app to help youth and young adults in Montreal discover nearby churches and 
 - Contact forms for:
   - public suggestions / issue reports
   - host registration requests
-- ADM editing with passcode gate, map-click coordinate capture, recurring event entry, and moderation queue for incoming submissions.
+- Quick “Suggest an update” shortcut from the map view to improve feedback UX.
+- ADM editing with passcode gate, map-click coordinate capture, recurring event entry, moderation queue, and church management (search/edit/delete).
 - Host mode with host passcode so a church/organization can edit only its own location and events.
 - Map section filters (language, event type, age group) to quickly narrow visible churches.
 - Google Maps reference workflow: store Google Maps URL + optional Google Place ID per church.
