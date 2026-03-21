@@ -1,7 +1,8 @@
-import { reverseGeocode } from '../services/geocoding.js';
+import { geocodeAddress, reverseGeocode, searchMontrealAddresses } from '../services/geocoding.js';
 import { appendAuditLog, saveChurches, updateHostRequestStatus, updateSuggestionStatus } from '../services/repository.js';
 import { t } from '../i18n.js';
 import { ADM_PASSCODE } from '../config.js';
+import { shortenAddress } from '../utils/address.js';
 
 const todayDate = () => new Date().toISOString().slice(0, 10);
 const hostCode = () => `H-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
@@ -29,6 +30,65 @@ function getRelevantSuggestions(state) {
 }
 
 export function attachAdminController({ state, map, elements, renderMarkers, renderChurchDetails }) {
+  let draftMarker = null;
+
+  const updateDraftMarker = (lat, lng) => {
+    if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return;
+    if (!draftMarker) draftMarker = L.marker([Number(lat), Number(lng)]).addTo(map);
+    else draftMarker.setLatLng([Number(lat), Number(lng)]);
+    map.setView([Number(lat), Number(lng)], 14);
+  };
+
+  const clearDraftMarker = () => {
+    if (!draftMarker) return;
+    draftMarker.remove();
+    draftMarker = null;
+  };
+
+  const moveMapTo = (target) => {
+    const mapNode = document.querySelector('#map');
+    if (mapNode && target && mapNode.parentElement !== target) target.appendChild(mapNode);
+    map.invalidateSize();
+  };
+
+  const setEditingMode = (editing) => {
+    state.isEditingChurch = editing;
+    document.body.classList.toggle('editing-mode', editing);
+    elements.adminPanel.classList.toggle('hidden', !editing);
+    if (editing) moveMapTo(elements.editorMapSlot);
+    else moveMapTo(elements.publicMapSlot);
+  };
+
+  const applyAddressMatch = (match) => {
+    if (!match) return;
+    elements.churchForm.elements.address.value = match.fullAddress;
+    elements.churchForm.elements.lat.value = Number(match.lat).toFixed(6);
+    elements.churchForm.elements.lng.value = Number(match.lng).toFixed(6);
+    elements.churchForm.elements.googleMapsUrl.value = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(match.fullAddress)}`;
+    updateDraftMarker(match.lat, match.lng);
+  };
+
+  const populateAddressSuggestions = async (query) => {
+    const list = document.querySelector('#montreal-addresses');
+    if (!list) return;
+    const matches = await searchMontrealAddresses(query, 6);
+    if (!matches.length) return;
+    list.innerHTML = matches.map((item) => `<option value="${item.fullAddress}"></option>`).join('');
+  };
+
+  const autofillChurchAddress = async () => {
+    const value = elements.churchForm.elements.address.value.trim();
+    if (!value) return;
+    elements.adminStatus.textContent = t(state, 'addressLookupLoading');
+    const match = await geocodeAddress(value);
+    if (!match) {
+      elements.adminStatus.textContent = t(state, 'addressLookupFailed');
+      return;
+    }
+    applyAddressMatch(match);
+    elements.adminStatus.textContent = t(state, 'addressAutofilled');
+  };
+
   const resetForm = () => {
     elements.churchForm.reset();
     elements.churchForm.elements.churchId.value = '';
@@ -36,14 +96,15 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     elements.adminStatus.textContent = '';
     state.selectedChurchId = null;
     state.mapCaptureEnabled = false;
+    elements.adminTitle.textContent = t(state, state.isHostMode ? 'editMyChurch' : 'addUpdateChurch');
     addEventRow(elements.eventsList, elements.eventTemplate);
+    clearDraftMarker();
+    setEditingMode(false);
   };
 
   const renderChurchManager = () => {
     const query = elements.churchManagerSearch?.value.trim().toLowerCase() || '';
-    const visibleChurches = state.isHostMode
-      ? state.churches.filter((church) => church.id === state.hostChurchId)
-      : state.churches;
+    const visibleChurches = state.isHostMode ? state.churches.filter((church) => church.id === state.hostChurchId) : state.churches;
 
     const rows = visibleChurches.filter((church) => {
       const text = `${church.name} ${church.address || ''}`.toLowerCase();
@@ -56,7 +117,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
             (church) => `
           <article class="manager-item">
             <p><strong>${church.name}</strong></p>
-            <p>${church.address || ''}</p>
+            <p>${shortenAddress(church.address) || ''}</p>
             <div class="queue-actions" data-id="${church.id}">
               <button type="button" data-action="edit">${t(state, 'editPin')}</button>
               ${state.isAdminMode ? `<button type="button" class="secondary" data-action="delete">${t(state, 'delete')}</button>` : ''}
@@ -71,9 +132,9 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   const renderEventManager = () => {
     const query = elements.eventManagerSearch?.value.trim().toLowerCase() || '';
     const churches = state.isHostMode ? state.churches.filter((church) => church.id === state.hostChurchId) : state.churches;
-    const rows = churches.flatMap((church) =>
-      (church.events || []).map((event, eventIndex) => ({ church, event, eventIndex }))
-    ).filter(({ church, event }) => `${church.name} ${event.type}`.toLowerCase().includes(query));
+    const rows = churches
+      .flatMap((church) => (church.events || []).map((event, eventIndex) => ({ church, event, eventIndex })))
+      .filter(({ church, event }) => `${church.name} ${event.type}`.toLowerCase().includes(query));
 
     elements.eventManagerList.innerHTML = rows.length
       ? rows
@@ -141,31 +202,40 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     elements.hostQueue.classList.toggle('hidden', moderationMode !== 'hostRequests' || !state.isAdminMode);
   };
 
-  const startEditChurch = (churchId) => {
-    if (!canEditChurch(state, churchId)) return;
-    const church = state.churches.find((item) => item.id === churchId);
-    if (!church) return;
+  const startEditChurch = (churchId = null) => {
+    if (churchId && !canEditChurch(state, churchId)) return;
+    const church = churchId ? state.churches.find((item) => item.id === churchId) : null;
 
-    elements.adminPanel.classList.remove('hidden');
-    elements.churchForm.elements.churchId.value = church.id;
-    elements.churchForm.elements.name.value = church.name;
-    elements.churchForm.elements.address.value = church.address || '';
-    elements.churchForm.elements.googleMapsUrl.value = church.googleMapsUrl || '';
-    elements.churchForm.elements.googlePlaceId.value = church.googlePlaceId || '';
-    elements.churchForm.elements.lat.value = church.lat;
-    elements.churchForm.elements.lng.value = church.lng;
-    elements.churchForm.elements.languages.value = (church.languages || []).join(', ');
-    elements.churchForm.elements.website.value = church.website || '';
-    elements.churchForm.elements.instagram.value = church.instagram || '';
-    elements.churchForm.elements.facebook.value = church.facebook || '';
-    elements.churchForm.elements.whatsapp.value = church.whatsapp || '';
-
+    elements.churchForm.reset();
     elements.eventsList.innerHTML = '';
-    (church.events || []).forEach((event) => addEventRow(elements.eventsList, elements.eventTemplate, event));
-    if (!church.events?.length) addEventRow(elements.eventsList, elements.eventTemplate);
 
-    state.selectedChurchId = church.id;
-    elements.adminTitle.textContent = t(state, 'editingChurch');
+    if (church) {
+      elements.churchForm.elements.churchId.value = church.id;
+      elements.churchForm.elements.name.value = church.name;
+      elements.churchForm.elements.address.value = church.address || '';
+      elements.churchForm.elements.googleMapsUrl.value = church.googleMapsUrl || '';
+      elements.churchForm.elements.googlePlaceId.value = church.googlePlaceId || '';
+      elements.churchForm.elements.lat.value = church.lat;
+      elements.churchForm.elements.lng.value = church.lng;
+      elements.churchForm.elements.languages.value = (church.languages || []).join(', ');
+      elements.churchForm.elements.website.value = church.website || '';
+      elements.churchForm.elements.instagram.value = church.instagram || '';
+      elements.churchForm.elements.facebook.value = church.facebook || '';
+      elements.churchForm.elements.whatsapp.value = church.whatsapp || '';
+      (church.events || []).forEach((event) => addEventRow(elements.eventsList, elements.eventTemplate, event));
+      if (!church.events?.length) addEventRow(elements.eventsList, elements.eventTemplate);
+      state.selectedChurchId = church.id;
+      elements.adminTitle.textContent = t(state, 'editingChurch');
+      updateDraftMarker(church.lat, church.lng);
+    } else {
+      elements.churchForm.elements.churchId.value = '';
+      addEventRow(elements.eventsList, elements.eventTemplate);
+      elements.adminTitle.textContent = t(state, 'addUpdateChurch');
+      clearDraftMarker();
+    }
+
+    elements.adminStatus.textContent = '';
+    setEditingMode(true);
   };
 
   const setWorkspaceVisibility = () => {
@@ -178,9 +248,13 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
         : '';
     elements.hardeningPanel.classList.toggle('hidden', !state.isAdminMode);
     elements.moderationTabs.classList.toggle('hidden', !state.isAdminMode);
-    elements.workspaceModeration.classList.toggle('hidden', !visible);
-    elements.adminPanel.classList.toggle('hidden', !visible);
+    elements.workspaceModeration.classList.toggle('hidden', !visible || state.isEditingChurch);
+    elements.addChurchButton.classList.toggle('hidden', !state.isAdminMode);
+    document.querySelectorAll('.admin-only').forEach((node) => node.classList.toggle('hidden', !state.isAdminMode));
+    if (!visible) resetForm();
   };
+
+  elements.addChurchButton.addEventListener('click', () => startEditChurch());
 
   elements.toggleHost.addEventListener('click', () => {
     if (state.isHostMode) {
@@ -205,7 +279,6 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     state.hostChurchId = church.id;
     state.isAdminMode = false;
     setWorkspaceVisibility();
-    startEditChurch(church.id);
     renderChurchManager();
     renderEventManager();
     renderModeration();
@@ -214,13 +287,17 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   elements.toggleAdmin.addEventListener('click', () => {
     if (!state.isAdminMode) {
       const code = prompt(t(state, 'enterAdmCode'));
-      if (code !== ADM_PASSCODE) return;
+      if (code !== ADM_PASSCODE) {
+        elements.workspaceStatus.textContent = t(state, 'admCodeNotFound');
+        return;
+      }
     }
 
     state.isAdminMode = !state.isAdminMode;
     if (state.isAdminMode) {
       state.isHostMode = false;
       state.hostChurchId = null;
+      elements.workspaceStatus.textContent = t(state, 'adminWorkspaceActive');
     }
 
     setWorkspaceVisibility();
@@ -231,6 +308,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
   elements.workspaceViewButtons.forEach((button) => {
     button.addEventListener('click', () => {
+      if (state.isEditingChurch) return;
       elements.workspaceViewButtons.forEach((item) => item.classList.toggle('active', item === button));
       const mode = button.dataset.workspaceView;
       elements.workspacePlacesView.classList.toggle('hidden', mode !== 'places');
@@ -248,6 +326,9 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
   elements.churchManagerSearch.addEventListener('input', renderChurchManager);
   elements.eventManagerSearch.addEventListener('input', renderEventManager);
+  elements.churchForm.elements.address.addEventListener('input', async (event) => populateAddressSuggestions(event.target.value));
+  elements.churchForm.elements.address.addEventListener('change', autofillChurchAddress);
+  elements.churchForm.elements.address.addEventListener('blur', autofillChurchAddress);
 
   elements.churchManagerList.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]');
@@ -292,6 +373,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       renderEventManager();
       renderMarkers();
       if (state.selectedChurchId === churchId) renderChurchDetails(church, startEditChurch);
+      elements.workspaceStatus.textContent = t(state, 'eventDeleted');
     }
   });
 
@@ -307,6 +389,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     if (resource === 'suggestion') {
       state.suggestions = await updateSuggestionStatus(id, status);
       state.auditLog = await appendAuditLog({ action: `suggestion_${status}`, label: id });
+      elements.workspaceStatus.textContent = t(state, 'moderationUpdated');
     }
 
     if (resource === 'hostRequest') {
@@ -316,7 +399,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
         state.churches.push({
           id: crypto.randomUUID(),
           hostPasscode: generatedHostCode,
-          name: state.hostRequests.find((item) => item.id === id)?.churchName || 'New host church',
+          name: state.hostRequests.find((item) => item.id === id)?.churchName || t(state, 'newHostChurchName'),
           address: '',
           googleMapsUrl: '',
           googlePlaceId: '',
@@ -338,6 +421,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       }
       state.auditLog = await appendAuditLog({ action: `host_request_${status}`, label: id });
       renderChurchManager();
+      elements.workspaceStatus.textContent = t(state, 'moderationUpdated');
     }
 
     renderModeration();
@@ -349,14 +433,22 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   elements.toggleMapCapture.addEventListener('click', () => {
     state.mapCaptureEnabled = !state.mapCaptureEnabled;
     elements.toggleMapCapture.textContent = state.mapCaptureEnabled ? t(state, 'stopMapCapture') : t(state, 'startMapCapture');
+    elements.adminStatus.textContent = state.mapCaptureEnabled ? t(state, 'mapCaptureEnabledMsg') : '';
   });
 
   map.on('click', async (event) => {
     if (!state.mapCaptureEnabled || elements.adminPanel.classList.contains('hidden')) return;
     elements.churchForm.elements.lat.value = event.latlng.lat.toFixed(6);
     elements.churchForm.elements.lng.value = event.latlng.lng.toFixed(6);
+    updateDraftMarker(event.latlng.lat, event.latlng.lng);
     elements.churchForm.elements.address.value = t(state, 'locateLoading');
-    elements.churchForm.elements.address.value = await reverseGeocode(event.latlng.lat, event.latlng.lng);
+    const location = await reverseGeocode(event.latlng.lat, event.latlng.lng);
+    if (!location) {
+      elements.adminStatus.textContent = t(state, 'addressLookupFailed');
+      return;
+    }
+    applyAddressMatch(location);
+    elements.adminStatus.textContent = t(state, 'addressAutofilled');
   });
 
   elements.churchForm.addEventListener('submit', async (event) => {
@@ -405,8 +497,8 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     renderEventManager();
     state.selectedChurchId = church.id;
     renderChurchDetails(church, startEditChurch);
-    elements.adminStatus.textContent = `${t(state, 'churchSaved')} ${t(state, 'hostPasscode')}: ${church.hostPasscode}`;
-    if (!state.isHostMode) resetForm();
+    elements.workspaceStatus.textContent = `${t(state, 'churchSaved')} ${t(state, 'hostPasscode')}: ${church.hostPasscode}`;
+    resetForm();
   });
 
   addEventRow(elements.eventsList, elements.eventTemplate);

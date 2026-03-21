@@ -300,6 +300,32 @@ a {
   gap: 1rem;
 }
 
+.editor-shell {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.15fr) minmax(280px, 0.95fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.editor-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.editor-map-column {
+  position: sticky;
+  top: 5.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+#editor-map-slot,
+#public-map-slot {
+  min-height: 100%;
+}
+
 .stack-list {
   display: flex;
   flex-direction: column;
@@ -348,6 +374,10 @@ a {
   border: 1px solid rgba(23, 32, 51, 0.08);
   box-shadow: var(--shadow-soft);
   background: #d6e3ee;
+}
+
+#editor-map-slot #map {
+  min-height: 720px;
 }
 
 .details-sidecard,
@@ -570,10 +600,36 @@ fieldset legend {
   margin-top: 0.45rem;
 }
 
+body.editing-mode #about-us,
+body.editing-mode #find-church,
+body.editing-mode #contact-us,
+body.editing-mode .site-footer,
+body.editing-mode #privacy-section,
+body.editing-mode #legal-section,
+body.editing-mode #workspace-places-view,
+body.editing-mode #workspace-events-view,
+body.editing-mode #workspace-moderation,
+body.editing-mode #hardening-panel,
+body.editing-mode .workspace-toolbar > * {
+  opacity: 0.18;
+  pointer-events: none;
+  user-select: none;
+}
+
+body.editing-mode #my-church {
+  box-shadow: 0 24px 70px rgba(17, 32, 51, 0.22);
+}
+
+body.editing-mode #admin-panel {
+  border: 1px solid rgba(51, 78, 104, 0.18);
+  box-shadow: 0 24px 60px rgba(17, 32, 51, 0.18);
+}
+
 @media (max-width: 1120px) {
   .site-header,
   .finder-card,
   .workspace-grid,
+  .editor-shell,
   #map-view-panel,
   .calendar-layout.compact,
   .contact-layout {
@@ -614,6 +670,10 @@ fieldset legend {
   }
 
   .event-row {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-field-grid {
     grid-template-columns: 1fr;
   }
 

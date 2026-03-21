@@ -1,8 +1,16 @@
-import { geocodeAddress } from '../services/geocoding.js';
+import { geocodeAddress, searchMontrealAddresses } from '../services/geocoding.js';
 import { haversineKm } from '../utils/distance.js';
 import { t } from '../i18n.js';
 
 export function attachFinderController({ state, map, elements, renderMarkers, renderChurchDetails }) {
+  const addressList = document.querySelector('#montreal-addresses');
+
+  elements.finderForm.elements.address.addEventListener('input', async (event) => {
+    const matches = await searchMontrealAddresses(event.target.value, 6);
+    if (!matches.length || !addressList) return;
+    addressList.innerHTML = matches.map((item) => `<option value="${item.fullAddress}"></option>`).join('');
+  });
+
   elements.finderForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const address = elements.finderForm.elements.address.value.trim();
@@ -15,6 +23,8 @@ export function attachFinderController({ state, map, elements, renderMarkers, re
       elements.finderStatus.textContent = t(state, 'searchNoResults');
       return;
     }
+
+    elements.finderForm.elements.address.value = point.fullAddress;
 
     const matches = state.churches.filter((church) => haversineKm(point.lat, point.lng, Number(church.lat), Number(church.lng)) <= radiusKm);
     state.filteredIds = new Set(matches.map((church) => church.id));

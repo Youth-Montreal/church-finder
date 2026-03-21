@@ -65,6 +65,7 @@
             <button type="button" class="segment-btn active" data-workspace-view="places" data-i18n="placesMode">Churches</button>
             <button type="button" class="segment-btn" data-workspace-view="events" data-i18n="eventsMode">Events</button>
           </div>
+          <button id="add-church" type="button" class="secondary admin-only hidden" data-i18n="addChurch">Add church</button>
           <div class="segmented-control workspace-tabs admin-only hidden" id="moderation-tabs">
             <button type="button" class="segment-btn active" data-moderation-view="suggestions" data-i18n="suggestionsTab">Suggestions</button>
             <button type="button" class="segment-btn" data-moderation-view="hostRequests" data-i18n="hostRequestsTab">Host requests</button>
@@ -92,35 +93,53 @@
 
           <section class="workspace-column">
             <section id="admin-panel" class="admin-panel-card hidden">
-              <h3 id="admin-title" data-i18n="addUpdateChurch">Add / update church</h3>
-              <p id="admin-status" class="help-text"></p>
-              <form id="church-form">
-                <input type="hidden" name="churchId" />
-                <label><span data-i18n="churchName">Church name</span><input name="name" required /></label>
-                <label><span data-i18n="address">Address</span><input name="address" /></label>
-                <label><span data-i18n="googleMapsPinUrl">Google Maps pin URL</span><input name="googleMapsUrl" placeholder="https://maps.google.com/..." /></label>
-                <label><span data-i18n="googlePlaceId">Google Place ID (optional)</span><input name="googlePlaceId" placeholder="ChIJ..." /></label>
-                <label><span data-i18n="latitude">Latitude</span><input type="number" step="any" name="lat" required /></label>
-                <label><span data-i18n="longitude">Longitude</span><input type="number" step="any" name="lng" required /></label>
-                <p class="help-text" data-i18n="mapClickHint">When editing, click the map to capture coordinates and address automatically.</p>
-                <button id="toggle-map-capture" type="button" data-i18n="startMapCapture">Enable map capture</button>
-                <label><span data-i18n="languagesSpoken">Languages spoken</span><input name="languages" placeholder="English, Français" /></label>
-                <label><span data-i18n="website">Website</span><input type="url" name="website" /></label>
-                <label><span data-i18n="instagram">Instagram</span><input type="url" name="instagram" /></label>
-                <label><span data-i18n="facebook">Facebook</span><input type="url" name="facebook" /></label>
-                <label><span data-i18n="whatsapp">WhatsApp</span><input type="url" name="whatsapp" /></label>
+              <div class="editor-shell">
+                <div class="editor-form-column">
+                  <h3 id="admin-title" data-i18n="addUpdateChurch">Add / update church</h3>
+                  <p id="admin-status" class="help-text"></p>
+                  <p class="help-text" data-i18n="editingFocusHint">While editing, other sections are dimmed so you can focus on this church.</p>
+                  <form id="church-form">
+                    <input type="hidden" name="churchId" />
+                    <label><span data-i18n="churchName">Church name</span><input name="name" required /></label>
+                    <label>
+                      <span data-i18n="address">Address</span>
+                      <input id="church-address-input" name="address" list="montreal-addresses" autocomplete="street-address" required />
+                    </label>
+                    <label><span data-i18n="googleMapsPinUrl">Google Maps pin URL</span><input name="googleMapsUrl" placeholder="https://maps.google.com/..." /></label>
+                    <label><span data-i18n="googlePlaceId">Google Place ID (optional)</span><input name="googlePlaceId" placeholder="ChIJ..." /></label>
+                    <div class="editor-field-grid">
+                      <label><span data-i18n="latitude">Latitude</span><input type="number" step="any" name="lat" required /></label>
+                      <label><span data-i18n="longitude">Longitude</span><input type="number" step="any" name="lng" required /></label>
+                    </div>
+                    <p class="help-text" data-i18n="mapClickHint">When editing, click the map to capture coordinates and address automatically.</p>
+                    <button id="toggle-map-capture" type="button" data-i18n="startMapCapture">Enable map capture</button>
+                    <label>
+                      <span data-i18n="languagesSpoken">Languages spoken</span>
+                      <input name="languages" list="available-languages" placeholder="English, Français" />
+                    </label>
+                    <label><span data-i18n="website">Website</span><input type="url" name="website" /></label>
+                    <label><span data-i18n="instagram">Instagram</span><input type="url" name="instagram" /></label>
+                    <label><span data-i18n="facebook">Facebook</span><input type="url" name="facebook" /></label>
+                    <label><span data-i18n="whatsapp">WhatsApp</span><input type="url" name="whatsapp" /></label>
 
-                <fieldset>
-                  <legend data-i18n="gatherings">Gatherings</legend>
-                  <div id="events-list"></div>
-                  <button id="add-event" type="button" data-i18n="addGathering">+ Add gathering</button>
-                </fieldset>
+                    <fieldset>
+                      <legend data-i18n="gatherings">Gatherings</legend>
+                      <div id="events-list"></div>
+                      <button id="add-event" type="button" data-i18n="addGathering">+ Add gathering</button>
+                    </fieldset>
 
-                <div class="admin-actions">
-                  <button type="submit" data-i18n="saveChurch">Save church</button>
-                  <button id="cancel-edit" type="button" class="secondary" data-i18n="cancelEdit">Cancel edit</button>
+                    <div class="admin-actions">
+                      <button type="submit" data-i18n="saveChurch">Save church</button>
+                      <button id="cancel-edit" type="button" class="secondary" data-i18n="cancelEdit">Cancel edit</button>
+                    </div>
+                  </form>
                 </div>
-              </form>
+                <aside class="editor-map-column">
+                  <h4 data-i18n="editMapTitle">Map</h4>
+                  <p class="help-text" data-i18n="editMapHint">Use the map to confirm the pin and auto-fill the address details.</p>
+                  <div id="editor-map-slot"></div>
+                </aside>
+              </div>
             </section>
 
             <section id="workspace-moderation" class="admin-panel-card hidden">
@@ -196,8 +215,19 @@
 
         <div id="map-view-panel">
           <section class="map-filters">
-            <label><span data-i18n="filterLanguage">Language</span><input id="map-filter-language" placeholder="English, Français..." /></label>
-            <label><span data-i18n="eventType">Event type</span><input id="map-filter-type" placeholder="Bible study, prayer..." /></label>
+            <label><span data-i18n="filterLanguage">Language</span><input id="map-filter-language" list="available-languages" placeholder="English, Français..." /></label>
+            <label>
+              <span data-i18n="eventType">Event type</span>
+              <select id="map-filter-type">
+                <option value="" data-i18n="allEventTypes">All event types</option>
+                <option value="Bible study" data-i18n="eventBibleStudy">Bible study</option>
+                <option value="Church service" data-i18n="eventChurchService">Church service</option>
+                <option value="Fellowship" data-i18n="eventFellowship">Fellowship</option>
+                <option value="Worship" data-i18n="eventWorship">Worship</option>
+                <option value="Prayer" data-i18n="eventPrayer">Prayer</option>
+                <option value="Community work" data-i18n="eventCommunityWork">Community work</option>
+              </select>
+            </label>
             <label>
               <span data-i18n="ageGroup">Age group</span>
               <select id="map-filter-age">
@@ -213,7 +243,9 @@
             </div>
             <p id="map-filter-status" class="help-text"></p>
           </section>
-          <section id="map" aria-label="Community churches map in Montreal"></section>
+          <div id="public-map-slot">
+            <section id="map" aria-label="Community churches map in Montreal"></section>
+          </div>
           <aside class="details-sidecard">
             <h3 data-i18n="churchDetails">Church details</h3>
             <p id="empty-state" data-i18n="emptyState">Click a marker on the map to view details.</p>
@@ -225,8 +257,19 @@
           <div class="calendar-layout compact">
             <section class="calendar-filters">
               <label><span data-i18n="search">Search</span><input id="calendar-keyword" placeholder="Church, address, event type" /></label>
-              <label><span data-i18n="eventType">Event type</span><input id="calendar-type" placeholder="Bible study, service..." /></label>
-              <label><span data-i18n="language">Language</span><input id="calendar-language" placeholder="English, Français..." /></label>
+              <label>
+                <span data-i18n="eventType">Event type</span>
+                <select id="calendar-type">
+                  <option value="" data-i18n="allEventTypes">All event types</option>
+                  <option value="Bible study" data-i18n="eventBibleStudy">Bible study</option>
+                  <option value="Church service" data-i18n="eventChurchService">Church service</option>
+                  <option value="Fellowship" data-i18n="eventFellowship">Fellowship</option>
+                  <option value="Worship" data-i18n="eventWorship">Worship</option>
+                  <option value="Prayer" data-i18n="eventPrayer">Prayer</option>
+                  <option value="Community work" data-i18n="eventCommunityWork">Community work</option>
+                </select>
+              </label>
+              <label><span data-i18n="language">Language</span><input id="calendar-language" list="available-languages" placeholder="English, Français..." /></label>
               <label>
                 <span data-i18n="ageGroup">Age group</span>
                 <select id="calendar-age">
@@ -314,7 +357,15 @@
       <div class="event-row">
         <input type="date" name="date" required />
         <input type="time" name="time" required />
-        <input type="text" name="type" placeholder="Bible study / Service" required />
+        <select name="type" required>
+          <option value="" data-i18n="selectEventType">Select event type</option>
+          <option value="Bible study" data-i18n="eventBibleStudy">Bible study</option>
+          <option value="Church service" data-i18n="eventChurchService">Church service</option>
+          <option value="Fellowship" data-i18n="eventFellowship">Fellowship</option>
+          <option value="Worship" data-i18n="eventWorship">Worship</option>
+          <option value="Prayer" data-i18n="eventPrayer">Prayer</option>
+          <option value="Community work" data-i18n="eventCommunityWork">Community work</option>
+        </select>
         <select name="ageGroup">
           <option value="all">All ages</option>
           <option value="teens">Teens</option>
@@ -330,6 +381,11 @@
         <button type="button" class="remove-event">✕</button>
       </div>
     </template>
+
+    <datalist id="available-languages">
+      <option value="English"></option>
+      <option value="Français"></option>
+    </datalist>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script type="module" src="src/main.js"></script>

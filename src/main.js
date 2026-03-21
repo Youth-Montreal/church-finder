@@ -18,6 +18,7 @@ const elements = {
   hostQueue: document.querySelector('#host-queue'),
   toggleAdmin: document.querySelector('#toggle-admin'),
   toggleHost: document.querySelector('#toggle-host'),
+  addChurchButton: document.querySelector('#add-church'),
   churchForm: document.querySelector('#church-form'),
   eventsList: document.querySelector('#events-list'),
   eventTemplate: document.querySelector('#event-template'),
@@ -70,7 +71,9 @@ const elements = {
   mapViewPanel: document.querySelector('#map-view-panel'),
   calendarViewPanel: document.querySelector('#calendar-view-panel'),
   findViewButtons: Array.from(document.querySelectorAll('[data-find-view]')),
-  calendarModeToggle: document.querySelector('#calendar-mode-toggle')
+  calendarModeToggle: document.querySelector('#calendar-mode-toggle'),
+  publicMapSlot: document.querySelector('#public-map-slot'),
+  editorMapSlot: document.querySelector('#editor-map-slot')
 };
 
 const state = {
@@ -118,8 +121,9 @@ function openPlaceSuggestion(church) {
   scrollToSection('contact-us');
   if (elements.hostRequestPanel) elements.hostRequestPanel.classList.add('hidden');
   if (elements.contactForm) {
-    elements.contactForm.elements.subject.value = `Place update for ${church.name}`;
-    elements.contactForm.elements.message.value = `Address: ${church.address || ''}\nWhat should be changed?`;
+    elements.contactForm.elements.subject.value = `${t(state, 'suggestPlaceUpdate')}: ${church.name}`;
+    elements.contactForm.elements.message.value = '';
+    elements.contactForm.elements.message.placeholder = t(state, 'contactMessagePrompt');
     elements.contactForm.elements.message.focus();
   }
 }
@@ -128,8 +132,9 @@ function openEventSuggestion(church, eventData) {
   scrollToSection('contact-us');
   if (elements.hostRequestPanel) elements.hostRequestPanel.classList.add('hidden');
   if (elements.contactForm) {
-    elements.contactForm.elements.subject.value = `Event update for ${church.name}`;
-    elements.contactForm.elements.message.value = `Event: ${eventData.type}\nDate: ${eventData.date} ${eventData.time || ''}\nWhat should be changed?`;
+    elements.contactForm.elements.subject.value = `${t(state, 'suggestEventUpdate')}: ${church.name} — ${eventData.type}`;
+    elements.contactForm.elements.message.value = '';
+    elements.contactForm.elements.message.placeholder = t(state, 'contactMessagePrompt');
     elements.contactForm.elements.message.focus();
   }
 }

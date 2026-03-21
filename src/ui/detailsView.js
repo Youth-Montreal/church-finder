@@ -1,5 +1,6 @@
 import { t } from '../i18n.js';
 import { googlePlaceLink } from '../utils/googlePlace.js';
+import { shortenAddress } from '../utils/address.js';
 
 function hasUpcomingEvent(event) {
   const today = new Date();
@@ -12,11 +13,12 @@ function hasUpcomingEvent(event) {
 export function renderChurchDetails({ state, church, detailsElement, emptyStateElement, onEdit, onSuggestPlaceUpdate, onSuggestEventUpdate }) {
   const upcoming = (church.events || []).filter(hasUpcomingEvent).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
   const canEdit = state.isAdminMode || (state.isHostMode && state.hostChurchId === church.id);
+  const publicAddress = shortenAddress(church.address);
 
   detailsElement.innerHTML = `
     <article class="detail-card">
       <h3>${church.name}</h3>
-      ${church.address ? `<p>${church.address}</p>` : ''}
+      ${publicAddress ? `<p>${publicAddress}</p>` : ''}
       <p><a href="${googlePlaceLink(church)}" target="_blank" rel="noreferrer">${t(state, 'openMaps')}</a></p>
       ${church.languages?.length ? `<p><strong>${t(state, 'languagesLabel')}</strong> ${church.languages.join(', ')}</p>` : ''}
       <div class="detail-actions-row">

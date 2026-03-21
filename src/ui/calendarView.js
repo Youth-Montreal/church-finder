@@ -1,4 +1,5 @@
 import { t } from '../i18n.js';
+import { shortenAddress } from '../utils/address.js';
 
 function addDays(date, days) {
   const d = new Date(date);
@@ -106,7 +107,7 @@ export function renderCalendarList({ state, elements, onSuggestEventUpdate }) {
               <h4>${row.type}</h4>
               <p><strong>${row.date}</strong> ${t(state, 'atLabel')} ${row.time || '00:00'}</p>
               <p>${row.churchName}</p>
-              ${row.churchAddress ? `<p>${row.churchAddress}</p>` : ''}
+              ${row.churchAddress ? `<p>${shortenAddress(row.churchAddress)}</p>` : ''}
               ${row.ageGroup ? `<p>${t(state, 'ageGroup')}: ${row.ageGroup}</p>` : ''}
               <button type="button" class="secondary calendar-suggest-btn" data-row-index="${index}">${t(state, 'suggestEventUpdate')}</button>
             </article>
