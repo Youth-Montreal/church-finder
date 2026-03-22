@@ -45,15 +45,21 @@ const elements = {
   calendarCount: document.querySelector('#calendar-count'),
   calendarModeButtons: Array.from(document.querySelectorAll('[data-calendar-mode]')),
   contactForm: document.querySelector('#contact-form'),
+  contactFormPanel: document.querySelector('#contact-form-panel'),
   contactStatus: document.querySelector('#contact-status'),
   hostRequestForm: document.querySelector('#host-request-form'),
   hostRequestStatus: document.querySelector('#host-request-status'),
   hostRequestPanel: document.querySelector('#host-request-panel'),
+  hostRequestCancel: document.querySelector('#host-request-cancel'),
   toggleHostRequest: document.querySelector('#toggle-host-request'),
   churchManagerSearch: document.querySelector('#church-manager-search'),
   churchManagerList: document.querySelector('#church-manager-list'),
   eventManagerSearch: document.querySelector('#event-manager-search'),
   eventManagerList: document.querySelector('#event-manager-list'),
+  workspaceEventModeButtons: Array.from(document.querySelectorAll('[data-workspace-event-mode]')),
+  workspaceEventsPrev: document.querySelector('#workspace-events-prev'),
+  workspaceEventsNext: document.querySelector('#workspace-events-next'),
+  workspaceEventsPage: document.querySelector('#workspace-events-page'),
   workspaceModeration: document.querySelector('#workspace-moderation'),
   moderationTabs: document.querySelector('#moderation-tabs'),
   moderationTabButtons: Array.from(document.querySelectorAll('[data-moderation-view]')),
@@ -225,6 +231,11 @@ function setupMapFilters() {
 }
 
 function setupPublicForms() {
+  const toggleHostRequestMode = (showHostRequest) => {
+    elements.contactFormPanel.classList.toggle('hidden', showHostRequest);
+    elements.hostRequestPanel.classList.toggle('hidden', !showHostRequest);
+  };
+
   elements.contactForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(elements.contactForm).entries());
@@ -238,10 +249,15 @@ function setupPublicForms() {
   });
 
   elements.toggleHostRequest?.addEventListener('click', () => {
-    elements.hostRequestPanel.classList.toggle('hidden');
+    toggleHostRequestMode(true);
     if (!elements.hostRequestPanel.classList.contains('hidden')) {
       elements.hostRequestForm.elements.fullName.focus();
     }
+  });
+
+  elements.hostRequestCancel?.addEventListener('click', () => {
+    toggleHostRequestMode(false);
+    elements.hostRequestStatus.textContent = '';
   });
 
   elements.hostRequestForm.addEventListener('submit', async (event) => {
@@ -252,6 +268,7 @@ function setupPublicForms() {
     state.auditLog = await appendAuditLog({ action: 'host_request_submitted', label: data.churchName || 'host request' });
     elements.hostRequestForm.reset();
     elements.hostRequestStatus.textContent = t(state, 'hostRequestSubmitted');
+    toggleHostRequestMode(false);
     renderAuditLog();
     if (state.isAdminMode) renderModeration();
   });

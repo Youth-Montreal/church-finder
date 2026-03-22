@@ -4,15 +4,7 @@ import { t } from '../i18n.js';
 
 export function attachFinderController({ state, map, elements, renderMarkers, renderChurchDetails }) {
   const addressList = document.querySelector('#montreal-addresses');
-
-  elements.finderForm.elements.address.addEventListener('input', async (event) => {
-    const matches = await searchMontrealAddresses(event.target.value, 6);
-    if (!matches.length || !addressList) return;
-    addressList.innerHTML = matches.map((item) => `<option value="${item.fullAddress}"></option>`).join('');
-  });
-
-  elements.finderForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
+  const runFinderSearch = async () => {
     const address = elements.finderForm.elements.address.value.trim();
     const radiusKm = Number(elements.finderForm.elements.radiusKm.value);
     if (!address) return;
@@ -42,5 +34,19 @@ export function attachFinderController({ state, map, elements, renderMarkers, re
     }
 
     document.querySelector('#find-church')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  elements.finderForm.elements.address.addEventListener('input', async (event) => {
+    const matches = await searchMontrealAddresses(event.target.value, 6);
+    if (!matches.length || !addressList) return;
+    addressList.innerHTML = matches.map((item) => `<option value="${item.fullAddress}"></option>`).join('');
+  });
+  elements.finderForm.elements.address.addEventListener('change', runFinderSearch);
+  elements.finderForm.elements.radiusKm.addEventListener('change', runFinderSearch);
+  elements.mapApply.addEventListener('click', runFinderSearch);
+
+  elements.finderForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await runFinderSearch();
   });
 }

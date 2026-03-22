@@ -83,6 +83,18 @@
             </div>
 
             <div id="workspace-events-view" class="hidden">
+              <div class="events-toolbar">
+                <div class="segmented-control">
+                  <button type="button" class="segment-btn active" data-workspace-event-mode="daily" data-i18n="dailyView">Daily</button>
+                  <button type="button" class="segment-btn" data-workspace-event-mode="weekly" data-i18n="weeklyView">Weekly</button>
+                  <button type="button" class="segment-btn" data-workspace-event-mode="monthly" data-i18n="monthlyView">Monthly</button>
+                </div>
+                <div class="finder-actions compact-actions">
+                  <button id="workspace-events-prev" type="button" class="secondary" data-i18n="previousPage">Previous</button>
+                  <span id="workspace-events-page" class="help-text"></span>
+                  <button id="workspace-events-next" type="button" class="secondary" data-i18n="nextPage">Next</button>
+                </div>
+              </div>
               <label>
                 <span data-i18n="searchEvents">Search events</span>
                 <input id="event-manager-search" placeholder="Bible study, fellowship..." />
@@ -157,11 +169,16 @@
                   <input id="import-data" type="file" accept="application/json" hidden />
                 </label>
               </div>
-              <h4 data-i18n="auditLogTitle">Audit log</h4>
-              <ul id="audit-log-list" class="audit-log-list"></ul>
             </section>
           </section>
         </div>
+      </section>
+
+      <section id="audit-section" class="section-card hidden admin-only">
+        <details class="audit-accordion">
+          <summary data-i18n="auditLogTitle">Audit log</summary>
+          <ul id="audit-log-list" class="audit-log-list"></ul>
+        </details>
       </section>
 
       <section id="find-church" class="section-card search-background">
@@ -171,35 +188,6 @@
             <h2 data-i18n="findChurch">Find a church near you</h2>
           </div>
         </div>
-
-        <form id="finder-form" class="finder-card">
-          <label>
-            <span data-i18n="addressSearch">Your address</span>
-            <input id="finder-address" name="address" list="montreal-addresses" placeholder="1234 Rue Sainte-Catherine O, Montreal" required />
-            <datalist id="montreal-addresses">
-              <option value="1440 Rue Saint-Catherine O, Montreal"></option>
-              <option value="500 Rue Sainte-Catherine E, Montreal"></option>
-              <option value="1000 Rue de la Gauchetière O, Montreal"></option>
-              <option value="3800 Chemin Queen-Mary, Montreal"></option>
-              <option value="5455 Avenue de Gaspé, Montreal"></option>
-              <option value="1050 Rue Gilford, Montreal"></option>
-            </datalist>
-          </label>
-          <label>
-            <span data-i18n="radius">Radius</span>
-            <select id="finder-radius" name="radiusKm">
-              <option value="3">3 km</option>
-              <option value="5" selected>5 km</option>
-              <option value="10">10 km</option>
-              <option value="15">15 km</option>
-              <option value="25">25 km</option>
-            </select>
-          </label>
-          <p id="finder-status" class="help-text"></p>
-          <div class="finder-actions">
-            <button type="submit" data-i18n="findWithinRadius">Find within radius</button>
-          </div>
-        </form>
 
         <div class="view-toggle-row">
           <div class="segmented-control">
@@ -214,7 +202,29 @@
         </div>
 
         <div id="map-view-panel">
-          <section class="map-filters">
+          <form id="finder-form" class="map-filters">
+            <label>
+              <span data-i18n="addressSearch">Your address</span>
+              <input id="finder-address" name="address" list="montreal-addresses" placeholder="1234 Rue Sainte-Catherine O, Montreal" required />
+              <datalist id="montreal-addresses">
+                <option value="1440 Rue Saint-Catherine O, Montreal"></option>
+                <option value="500 Rue Sainte-Catherine E, Montreal"></option>
+                <option value="1000 Rue de la Gauchetière O, Montreal"></option>
+                <option value="3800 Chemin Queen-Mary, Montreal"></option>
+                <option value="5455 Avenue de Gaspé, Montreal"></option>
+                <option value="1050 Rue Gilford, Montreal"></option>
+              </datalist>
+            </label>
+            <label>
+              <span data-i18n="radius">Radius</span>
+              <select id="finder-radius" name="radiusKm">
+                <option value="3">3 km</option>
+                <option value="5" selected>5 km</option>
+                <option value="10">10 km</option>
+                <option value="15">15 km</option>
+                <option value="25">25 km</option>
+              </select>
+            </label>
             <label><span data-i18n="filterLanguage">Language</span><input id="map-filter-language" list="available-languages" placeholder="English, Français..." /></label>
             <label>
               <span data-i18n="eventType">Event type</span>
@@ -241,8 +251,9 @@
               <button id="map-apply" type="button" data-i18n="applyFilters">Apply filters</button>
               <button id="map-clear" type="button" class="secondary" data-i18n="clearFilters">Clear</button>
             </div>
+            <p id="finder-status" class="help-text"></p>
             <p id="map-filter-status" class="help-text"></p>
-          </section>
+          </form>
           <div id="public-map-slot">
             <section id="map" aria-label="Community churches map in Montreal"></section>
           </div>
@@ -298,7 +309,7 @@
         </div>
 
         <div class="contact-layout single-column">
-          <section>
+          <section id="contact-form-panel">
             <form id="contact-form">
               <label><span data-i18n="fullName">Full name</span><input name="fullName" required /></label>
               <label><span data-i18n="phoneNumber">Phone number</span><input name="phone" required /></label>
@@ -321,6 +332,7 @@
               <label><span data-i18n="message">Message</span><textarea name="message" rows="5" required></textarea></label>
               <div class="finder-actions">
                 <button id="host-request-send" type="submit" data-i18n="send">Send</button>
+                <button id="host-request-cancel" type="button" class="secondary" data-i18n="cancel">Cancel</button>
               </div>
             </form>
             <p id="host-request-status" class="help-text"></p>

@@ -55,7 +55,7 @@ export const TRANSLATIONS = {
     instagram: 'Instagram',
     facebook: 'Facebook',
     whatsapp: 'WhatsApp',
-    gatherings: 'Gatherings (next 7 days)',
+    gatherings: 'Gatherings',
     addGathering: '+ Add gathering',
     saveChurch: 'Save church',
     cancelEdit: 'Cancel edit',
@@ -174,6 +174,10 @@ export const TRANSLATIONS = {
     newHostChurchName: 'New host church',
     eventDeleted: 'Event deleted.',
     contactMessagePrompt: 'Tell us what should be updated.'
+    ,
+    previousPage: 'Previous',
+    nextPage: 'Next',
+    cancel: 'Cancel'
   },
   'fr-CA': {
     language: 'Langue',
@@ -229,7 +233,7 @@ export const TRANSLATIONS = {
     instagram: 'Instagram',
     facebook: 'Facebook',
     whatsapp: 'WhatsApp',
-    gatherings: 'Rencontres (7 prochains jours)',
+    gatherings: 'Rencontres',
     addGathering: '+ Ajouter rencontre',
     saveChurch: "Enregistrer l'église",
     cancelEdit: 'Annuler',
@@ -347,7 +351,10 @@ export const TRANSLATIONS = {
     moderationUpdated: 'Statut de révision mis à jour.',
     newHostChurchName: 'Nouvelle église hôte',
     eventDeleted: 'Événement supprimé.',
-    contactMessagePrompt: 'Expliquez ce qui devrait être mis à jour.'
+    contactMessagePrompt: 'Expliquez ce qui devrait être mis à jour.',
+    previousPage: 'Précédent',
+    nextPage: 'Suivant',
+    cancel: 'Annuler'
   }
 };
 

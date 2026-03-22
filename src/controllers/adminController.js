@@ -132,12 +132,34 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   const renderEventManager = () => {
     const query = elements.eventManagerSearch?.value.trim().toLowerCase() || '';
     const churches = state.isHostMode ? state.churches.filter((church) => church.id === state.hostChurchId) : state.churches;
+    const today = new Date();
+    const rangeEnd = new Date(today);
+    const mode = state.workspaceEventMode || 'daily';
+    if (mode === 'daily') rangeEnd.setDate(today.getDate() + 3);
+    if (mode === 'weekly') rangeEnd.setDate(today.getDate() + 7);
+    if (mode === 'monthly') rangeEnd.setMonth(today.getMonth() + 1);
+
     const rows = churches
       .flatMap((church) => (church.events || []).map((event, eventIndex) => ({ church, event, eventIndex })))
-      .filter(({ church, event }) => `${church.name} ${event.type}`.toLowerCase().includes(query));
+      .filter(({ church, event }) => {
+        const eventDate = new Date(`${event.date}T${event.time || '00:00'}`);
+        const matchesRange = mode === 'monthly' ? eventDate >= today && eventDate <= rangeEnd : eventDate >= today && eventDate <= rangeEnd;
+        return matchesRange && `${church.name} ${event.type}`.toLowerCase().includes(query);
+      })
+      .sort((a, b) => `${a.event.date}${a.event.time}`.localeCompare(`${b.event.date}${b.event.time}`));
 
-    elements.eventManagerList.innerHTML = rows.length
-      ? rows
+    const pageSize = mode === 'daily' ? 5 : 8;
+    const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+    state.workspaceEventsPage = Math.min(state.workspaceEventsPage || 1, totalPages);
+    const start = ((state.workspaceEventsPage || 1) - 1) * pageSize;
+    const visibleRows = rows.slice(start, start + pageSize);
+
+    elements.workspaceEventsPage.textContent = `${state.workspaceEventsPage || 1} / ${totalPages}`;
+    elements.workspaceEventsPrev.disabled = (state.workspaceEventsPage || 1) <= 1;
+    elements.workspaceEventsNext.disabled = (state.workspaceEventsPage || 1) >= totalPages;
+
+    elements.eventManagerList.innerHTML = visibleRows.length
+      ? visibleRows
           .map(
             ({ church, event, eventIndex }) => `
             <article class="manager-item">
@@ -325,7 +347,26 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   });
 
   elements.churchManagerSearch.addEventListener('input', renderChurchManager);
-  elements.eventManagerSearch.addEventListener('input', renderEventManager);
+  elements.eventManagerSearch.addEventListener('input', () => {
+    state.workspaceEventsPage = 1;
+    renderEventManager();
+  });
+  elements.workspaceEventModeButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      state.workspaceEventMode = button.dataset.workspaceEventMode;
+      state.workspaceEventsPage = 1;
+      elements.workspaceEventModeButtons.forEach((item) => item.classList.toggle('active', item === button));
+      renderEventManager();
+    });
+  });
+  elements.workspaceEventsPrev.addEventListener('click', () => {
+    state.workspaceEventsPage = Math.max(1, (state.workspaceEventsPage || 1) - 1);
+    renderEventManager();
+  });
+  elements.workspaceEventsNext.addEventListener('click', () => {
+    state.workspaceEventsPage = (state.workspaceEventsPage || 1) + 1;
+    renderEventManager();
+  });
   elements.churchForm.elements.address.addEventListener('input', async (event) => populateAddressSuggestions(event.target.value));
   elements.churchForm.elements.address.addEventListener('change', autofillChurchAddress);
   elements.churchForm.elements.address.addEventListener('blur', autofillChurchAddress);
@@ -502,6 +543,8 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   });
 
   addEventRow(elements.eventsList, elements.eventTemplate);
+  state.workspaceEventMode = 'daily';
+  state.workspaceEventsPage = 1;
   setWorkspaceVisibility();
   renderChurchManager();
   renderEventManager();
