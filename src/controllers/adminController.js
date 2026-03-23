@@ -11,7 +11,14 @@ function addEventRow(eventsList, eventTemplate, event = { date: todayDate(), tim
   const node = eventTemplate.content.firstElementChild.cloneNode(true);
   node.querySelector('[name="date"]').value = event.date;
   node.querySelector('[name="time"]').value = event.time;
-  node.querySelector('[name="type"]').value = event.type;
+  const typeSelect = node.querySelector('[name="type"]');
+  const selectedTypes = String(event.type || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  Array.from(typeSelect.options).forEach((option) => {
+    option.selected = selectedTypes.includes(option.value);
+  });
   node.querySelector('[name="ageGroup"]').value = event.ageGroup || 'all';
   node.querySelector('[name="recurrence"]').value = event.recurrence || 'none';
   node.querySelector('[name="until"]').value = event.until || '';
@@ -239,7 +246,9 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       elements.churchForm.elements.googlePlaceId.value = church.googlePlaceId || '';
       elements.churchForm.elements.lat.value = church.lat;
       elements.churchForm.elements.lng.value = church.lng;
-      elements.churchForm.elements.languages.value = (church.languages || []).join(', ');
+      Array.from(elements.churchForm.elements.languages.options).forEach((option) => {
+        option.selected = (church.languages || []).includes(option.value);
+      });
       elements.churchForm.elements.website.value = church.website || '';
       elements.churchForm.elements.instagram.value = church.instagram || '';
       elements.churchForm.elements.facebook.value = church.facebook || '';
@@ -469,6 +478,14 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   });
 
   elements.addEventButton.addEventListener('click', () => addEventRow(elements.eventsList, elements.eventTemplate));
+  elements.workspaceAddEventButton.addEventListener('click', () => {
+    const targetChurchId = state.hostChurchId || state.selectedChurchId || state.churches[0]?.id;
+    if (!targetChurchId) {
+      elements.workspaceStatus.textContent = t(state, 'addChurchFirst');
+      return;
+    }
+    startEditChurch(targetChurchId);
+  });
   elements.cancelEditButton.addEventListener('click', resetForm);
 
   elements.toggleMapCapture.addEventListener('click', () => {
@@ -499,7 +516,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       .map((node) => ({
         date: node.querySelector('[name="date"]').value,
         time: node.querySelector('[name="time"]').value,
-        type: node.querySelector('[name="type"]').value.trim(),
+        type: Array.from(node.querySelector('[name="type"]').selectedOptions).map((option) => option.value).join(', '),
         ageGroup: node.querySelector('[name="ageGroup"]').value || 'all',
         recurrence: node.querySelector('[name="recurrence"]').value || 'none',
         until: node.querySelector('[name="until"]').value || ''
@@ -519,7 +536,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       googlePlaceId: formData.get('googlePlaceId').trim(),
       lat: Number(formData.get('lat')),
       lng: Number(formData.get('lng')),
-      languages: formData.get('languages').split(',').map((item) => item.trim()).filter(Boolean),
+      languages: Array.from(elements.churchForm.elements.languages.selectedOptions).map((option) => option.value),
       website: formData.get('website').trim(),
       instagram: formData.get('instagram').trim(),
       facebook: formData.get('facebook').trim(),

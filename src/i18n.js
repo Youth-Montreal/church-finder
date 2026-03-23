@@ -154,6 +154,8 @@ export const TRANSLATIONS = {
     statusPending: 'Pending',
     statusContacting: 'Contacting',
     addChurch: 'Add church',
+    addEvent: 'Add event',
+    addChurchFirst: 'Add or select a church first.',
     editingFocusHint: 'While editing, other sections are dimmed so you can stay focused on this church.',
     editMapTitle: 'Map',
     editMapHint: 'Use the map to confirm the pin and auto-fill the address details.',
@@ -178,6 +180,8 @@ export const TRANSLATIONS = {
     previousPage: 'Previous',
     nextPage: 'Next',
     cancel: 'Cancel'
+    ,
+    toggleFilters: 'Filters'
   },
   'fr-CA': {
     language: 'Langue',
@@ -332,6 +336,8 @@ export const TRANSLATIONS = {
     statusPending: 'En attente',
     statusContacting: 'En contact',
     addChurch: 'Ajouter une église',
+    addEvent: 'Ajouter un événement',
+    addChurchFirst: 'Ajoutez ou sélectionnez d’abord une église.',
     editingFocusHint: 'Pendant la modification, les autres sections sont atténuées pour garder le focus sur cette église.',
     editMapTitle: 'Carte',
     editMapHint: 'Utilisez la carte pour confirmer le point et remplir automatiquement les détails de l’adresse.',
@@ -354,7 +360,8 @@ export const TRANSLATIONS = {
     contactMessagePrompt: 'Expliquez ce qui devrait être mis à jour.',
     previousPage: 'Précédent',
     nextPage: 'Suivant',
-    cancel: 'Annuler'
+    cancel: 'Annuler',
+    toggleFilters: 'Filtres'
   }
 };
 

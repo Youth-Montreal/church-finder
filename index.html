@@ -26,6 +26,15 @@
         <a href="#contact-us" data-i18n="navContact">Contact us</a>
       </nav>
 
+      <div class="header-social" aria-label="Social links">
+        <a href="https://www.instagram.com/youth.montreal/" target="_blank" rel="noreferrer" aria-label="Instagram" class="social-icon social-icon-header">
+          <span class="social-glyph">◎</span>
+        </a>
+        <a href="https://www.tiktok.com/@youth.montreal" target="_blank" rel="noreferrer" aria-label="TikTok" class="social-icon social-icon-header">
+          <span class="social-glyph">♬</span>
+        </a>
+      </div>
+
       <div class="header-controls">
         <label class="language-picker">
           <span data-i18n="language">Language</span>
@@ -65,7 +74,6 @@
             <button type="button" class="segment-btn active" data-workspace-view="places" data-i18n="placesMode">Churches</button>
             <button type="button" class="segment-btn" data-workspace-view="events" data-i18n="eventsMode">Events</button>
           </div>
-          <button id="add-church" type="button" class="secondary admin-only hidden" data-i18n="addChurch">Add church</button>
           <div class="segmented-control workspace-tabs admin-only hidden" id="moderation-tabs">
             <button type="button" class="segment-btn active" data-moderation-view="suggestions" data-i18n="suggestionsTab">Suggestions</button>
             <button type="button" class="segment-btn" data-moderation-view="hostRequests" data-i18n="hostRequestsTab">Host requests</button>
@@ -75,6 +83,9 @@
         <div class="workspace-grid">
           <section class="workspace-column">
             <div id="workspace-places-view">
+              <div class="view-section-toolbar">
+                <button id="add-church" type="button" class="secondary admin-only hidden" data-i18n="addChurch">Add church</button>
+              </div>
               <label>
                 <span data-i18n="searchChurches">Search churches</span>
                 <input id="church-manager-search" placeholder="Name, address, language" />
@@ -83,6 +94,9 @@
             </div>
 
             <div id="workspace-events-view" class="hidden">
+              <div class="view-section-toolbar">
+                <button id="workspace-add-event" type="button" class="secondary" data-i18n="addEvent">Add event</button>
+              </div>
               <div class="events-toolbar">
                 <div class="segmented-control">
                   <button type="button" class="segment-btn active" data-workspace-event-mode="daily" data-i18n="dailyView">Daily</button>
@@ -127,7 +141,10 @@
                     <button id="toggle-map-capture" type="button" data-i18n="startMapCapture">Enable map capture</button>
                     <label>
                       <span data-i18n="languagesSpoken">Languages spoken</span>
-                      <input name="languages" list="available-languages" placeholder="English, Français" />
+                      <select name="languages" multiple size="4">
+                        <option value="English">English</option>
+                        <option value="Français">Français</option>
+                      </select>
                     </label>
                     <label><span data-i18n="website">Website</span><input type="url" name="website" /></label>
                     <label><span data-i18n="instagram">Instagram</span><input type="url" name="instagram" /></label>
@@ -215,15 +232,10 @@
                 <option value="1050 Rue Gilford, Montreal"></option>
               </datalist>
             </label>
-            <label>
+            <label class="radius-control">
               <span data-i18n="radius">Radius</span>
-              <select id="finder-radius" name="radiusKm">
-                <option value="3">3 km</option>
-                <option value="5" selected>5 km</option>
-                <option value="10">10 km</option>
-                <option value="15">15 km</option>
-                <option value="25">25 km</option>
-              </select>
+              <input id="finder-radius" name="radiusKm" type="range" min="0.3" max="50" step="0.1" value="5" />
+              <strong id="finder-radius-value">5 km</strong>
             </label>
             <label><span data-i18n="filterLanguage">Language</span><input id="map-filter-language" list="available-languages" placeholder="English, Français..." /></label>
             <label>
@@ -266,6 +278,9 @@
 
         <div id="calendar-view-panel" class="hidden">
           <div class="calendar-layout compact">
+            <div class="calendar-toolbar">
+              <button id="calendar-toggle-filters" type="button" class="secondary icon-btn" aria-label="Toggle calendar filters" data-i18n="toggleFilters">Filters</button>
+            </div>
             <section class="calendar-filters">
               <label><span data-i18n="search">Search</span><input id="calendar-keyword" placeholder="Church, address, event type" /></label>
               <label>
@@ -339,15 +354,13 @@
           </section>
         </div>
 
-        <div class="social-footer">
-          <a href="https://www.instagram.com/youth.montreal/" target="_blank" rel="noreferrer" aria-label="Instagram" class="social-icon">IG</a>
-          <a href="https://www.tiktok.com/@youth.montreal" target="_blank" rel="noreferrer" aria-label="TikTok" class="social-icon">TT</a>
-        </div>
       </section>
 
       <footer class="site-footer">
-        <button class="footer-link" type="button" data-target="privacy-section" data-i18n="privacyPage">Privacy</button>
-        <button class="footer-link" type="button" data-target="legal-section" data-i18n="legalPage">Legal</button>
+        <div class="footer-meta">
+          <button class="footer-link" type="button" data-target="privacy-section" data-i18n="privacyPage">Privacy</button>
+          <button class="footer-link" type="button" data-target="legal-section" data-i18n="legalPage">Legal</button>
+        </div>
       </footer>
 
       <section id="privacy-section" class="section-card hidden static-page">
@@ -369,8 +382,7 @@
       <div class="event-row">
         <input type="date" name="date" required />
         <input type="time" name="time" required />
-        <select name="type" required>
-          <option value="" data-i18n="selectEventType">Select event type</option>
+        <select name="type" multiple size="4" required>
           <option value="Bible study" data-i18n="eventBibleStudy">Bible study</option>
           <option value="Church service" data-i18n="eventChurchService">Church service</option>
           <option value="Fellowship" data-i18n="eventFellowship">Fellowship</option>
