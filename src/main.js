@@ -25,7 +25,6 @@ const elements = {
   eventTemplate: document.querySelector('#event-template'),
   addEventButton: document.querySelector('#add-event'),
   cancelEditButton: document.querySelector('#cancel-edit'),
-  toggleMapCapture: document.querySelector('#toggle-map-capture'),
   languageSelect: document.querySelector('#language-select'),
   finderForm: document.querySelector('#finder-form'),
   finderAddress: document.querySelector('#finder-address'),
@@ -34,7 +33,6 @@ const elements = {
   mapFilterAge: document.querySelector('#map-filter-age'),
   mapApply: document.querySelector('#map-apply'),
   mapClear: document.querySelector('#map-clear'),
-  mapFilterStatus: document.querySelector('#map-filter-status'),
   calendarKeyword: document.querySelector('#calendar-keyword'),
   calendarType: document.querySelector('#calendar-type'),
   calendarLanguage: document.querySelector('#calendar-language'),
@@ -81,7 +79,10 @@ const elements = {
   findViewButtons: Array.from(document.querySelectorAll('[data-find-view]')),
   calendarModeToggle: document.querySelector('#calendar-mode-toggle'),
   publicMapSlot: document.querySelector('#public-map-slot'),
-  editorMapSlot: document.querySelector('#editor-map-slot')
+  editorMapSlot: document.querySelector('#editor-map-slot'),
+  editorContext: document.querySelector('#editor-context'),
+  saveEditButton: document.querySelector('#save-edit'),
+  deleteEditingItemButton: document.querySelector('#delete-editing-item')
 };
 
 const state = {
@@ -94,7 +95,9 @@ const state = {
   mapFilteredIds: null,
   language: localStorage.getItem(LANGUAGE_KEY) || 'en',
   selectedChurchId: null,
-  mapCaptureEnabled: false,
+  editorMode: 'church',
+  editingEventIndex: null,
+  lastFinderPoint: null,
   isAdminMode: false,
   isHostMode: false,
   hostChurchId: null
@@ -166,7 +169,7 @@ let renderChurchManager = () => {};
 async function deleteCalendarEvent(row) {
   const church = state.churches.find((item) => item.id === row.churchId);
   if (!church) return;
-  const index = (church.events || []).findIndex((event) => event.date === row.date && event.time === row.time && event.type === row.type);
+  const index = Number.isInteger(row.eventIndex) ? row.eventIndex : (church.events || []).findIndex((event) => event.date === row.date && event.time === row.time && event.type === row.type);
   if (index < 0) return;
   church.events.splice(index, 1);
   await saveChurches(state.churches);
@@ -177,7 +180,7 @@ async function deleteCalendarEvent(row) {
 }
 
 function editCalendarEvent(row) {
-  startEditChurch(row.churchId);
+  startEditChurch(row.churchId, { eventIndex: row.eventIndex });
   scrollToSection('my-church');
 }
 
@@ -222,7 +225,7 @@ function setupCalendar() {
   elements.calendarMode = { value: 'daily' };
 }
 
-function setupMapFilters() {
+function setupMapFilters(finderController) {
   const syncRadiusLabel = () => {
     const radiusKm = Number(elements.finderForm.elements.radiusKm.value);
     const label = radiusKm < 1 ? `${Math.round(radiusKm * 1000)} m` : `${radiusKm.toFixed(radiusKm < 10 ? 1 : 0)} km`;
@@ -241,21 +244,31 @@ function setupMapFilters() {
     return byLanguage && byEventType && byAge;
   };
 
-  const applyMapFilters = () => {
+  const applyMapFilters = async () => {
     const matches = state.churches.filter(matchesMapFilters);
     state.mapFilteredIds = new Set(matches.map((church) => church.id));
+    const address = elements.finderAddress.value.trim();
+    if (address) {
+      await finderController.applyLocationFilter({ shouldGeocode: !state.lastFinderPoint || state.lastFinderPoint.query !== address });
+      return;
+    }
+    state.filteredIds = null;
     rerenderMarkers();
-    elements.mapFilterStatus.textContent = `${matches.length} ${t(state, 'churchesMatchingFilters')}`;
+    elements.finderStatus.textContent = `${matches.length} ${t(state, 'churchesMatchingFilters')}`;
   };
 
   elements.mapApply.addEventListener('click', applyMapFilters);
   elements.mapClear.addEventListener('click', () => {
+    elements.finderForm.reset();
     elements.mapFilterLanguage.value = '';
     elements.mapFilterType.value = '';
     elements.mapFilterAge.value = '';
     state.mapFilteredIds = null;
-    elements.mapFilterStatus.textContent = '';
-    rerenderMarkers();
+    finderController.clearLocationFilter();
+    syncRadiusLabel();
+    resetMapView(map);
+    const selectedChurch = state.churches.find((item) => item.id === state.selectedChurchId) || state.churches[0];
+    if (selectedChurch) renderDetails(selectedChurch, startEditChurch);
   });
 
   elements.finderForm.elements.radiusKm.addEventListener('input', syncRadiusLabel);
@@ -366,7 +379,7 @@ async function init() {
   renderModeration = adminController.renderModeration;
   renderChurchManager = adminController.renderChurchManager;
 
-  attachFinderController({
+  const finderController = attachFinderController({
     state,
     map,
     elements,
@@ -388,7 +401,7 @@ async function init() {
 
   setupNavigation();
   setupCalendar();
-  setupMapFilters();
+  setupMapFilters(finderController);
   setupPublicForms();
   setupHardeningTools();
   showFindView('map');

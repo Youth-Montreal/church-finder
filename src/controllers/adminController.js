@@ -6,22 +6,26 @@ import { shortenAddress } from '../utils/address.js';
 
 const todayDate = () => new Date().toISOString().slice(0, 10);
 const hostCode = () => `H-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+const defaultEvent = () => ({ date: todayDate(), time: '19:00', type: '', ageGroup: 'all', recurrence: 'none' });
 
-function addEventRow(eventsList, eventTemplate, event = { date: todayDate(), time: '19:00', type: '', ageGroup: 'all', recurrence: 'none', until: '' }) {
-  const node = eventTemplate.content.firstElementChild.cloneNode(true);
-  node.querySelector('[name="date"]').value = event.date;
-  node.querySelector('[name="time"]').value = event.time;
-  const typeSelect = node.querySelector('[name="type"]');
-  const selectedTypes = String(event.type || '')
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-  Array.from(typeSelect.options).forEach((option) => {
-    option.selected = selectedTypes.includes(option.value);
+function setCheckedValues(container, name, values) {
+  const selected = new Set(values);
+  container.querySelectorAll(`[name="${name}"]`).forEach((input) => {
+    input.checked = selected.has(input.value);
   });
+}
+
+function getCheckedValues(container, name) {
+  return Array.from(container.querySelectorAll(`[name="${name}"]:checked`)).map((input) => input.value);
+}
+
+function addEventRow(eventsList, eventTemplate, event = defaultEvent()) {
+  const node = eventTemplate.content.firstElementChild.cloneNode(true);
+  node.querySelector('[name="date"]').value = event.date || todayDate();
+  node.querySelector('[name="time"]').value = event.time || '19:00';
+  setCheckedValues(node, 'type', String(event.type || '').split(',').map((item) => item.trim()).filter(Boolean));
   node.querySelector('[name="ageGroup"]').value = event.ageGroup || 'all';
   node.querySelector('[name="recurrence"]').value = event.recurrence || 'none';
-  node.querySelector('[name="until"]').value = event.until || '';
   node.querySelector('.remove-event').addEventListener('click', () => node.remove());
   eventsList.appendChild(node);
 }
@@ -58,12 +62,23 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     map.invalidateSize();
   };
 
-  const setEditingMode = (editing) => {
+  const setEditingMode = (editing, mode = 'church') => {
     state.isEditingChurch = editing;
+    state.editorMode = mode;
     document.body.classList.toggle('editing-mode', editing);
+    document.body.classList.toggle('church-form-event-mode', editing && mode === 'event');
     elements.adminPanel.classList.toggle('hidden', !editing);
-    if (editing) moveMapTo(elements.editorMapSlot);
+    elements.addEventButton.classList.toggle('hidden', mode === 'event');
+    if (editing && mode === 'church') moveMapTo(elements.editorMapSlot);
     else moveMapTo(elements.publicMapSlot);
+  };
+
+  const populateAddressSuggestions = async (query) => {
+    const list = document.querySelector('#montreal-addresses');
+    if (!list) return;
+    const matches = await searchMontrealAddresses(query, 6);
+    if (!matches.length) return;
+    list.innerHTML = matches.map((item) => `<option value="${item.fullAddress}"></option>`).join('');
   };
 
   const applyAddressMatch = (match) => {
@@ -75,15 +90,8 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     updateDraftMarker(match.lat, match.lng);
   };
 
-  const populateAddressSuggestions = async (query) => {
-    const list = document.querySelector('#montreal-addresses');
-    if (!list) return;
-    const matches = await searchMontrealAddresses(query, 6);
-    if (!matches.length) return;
-    list.innerHTML = matches.map((item) => `<option value="${item.fullAddress}"></option>`).join('');
-  };
-
   const autofillChurchAddress = async () => {
+    if (state.editorMode !== 'church') return;
     const value = elements.churchForm.elements.address.value.trim();
     if (!value) return;
     elements.adminStatus.textContent = t(state, 'addressLookupLoading');
@@ -96,13 +104,29 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     elements.adminStatus.textContent = t(state, 'addressAutofilled');
   };
 
+  const readEventRows = () => Array.from(elements.eventsList.querySelectorAll('.event-row'))
+    .map((node) => ({
+      date: node.querySelector('[name="date"]').value,
+      time: node.querySelector('[name="time"]').value,
+      type: getCheckedValues(node, 'type').join(', '),
+      ageGroup: node.querySelector('[name="ageGroup"]').value || 'all',
+      recurrence: node.querySelector('[name="recurrence"]').value || 'none'
+    }))
+    .filter((row) => row.date && row.time && row.type);
+
   const resetForm = () => {
     elements.churchForm.reset();
     elements.churchForm.elements.churchId.value = '';
+    elements.churchForm.elements.eventIndex.value = '';
     elements.eventsList.innerHTML = '';
+    setCheckedValues(elements.churchForm, 'languages', []);
     elements.adminStatus.textContent = '';
+    elements.editorContext.textContent = '';
+    elements.editorContext.classList.add('hidden');
+    elements.deleteEditingItemButton.classList.add('hidden');
+    elements.saveEditButton.textContent = t(state, 'saveChurch');
     state.selectedChurchId = null;
-    state.mapCaptureEnabled = false;
+    state.editingEventIndex = null;
     elements.adminTitle.textContent = t(state, state.isHostMode ? 'editMyChurch' : 'addUpdateChurch');
     addEventRow(elements.eventsList, elements.eventTemplate);
     clearDraftMarker();
@@ -112,16 +136,10 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   const renderChurchManager = () => {
     const query = elements.churchManagerSearch?.value.trim().toLowerCase() || '';
     const visibleChurches = state.isHostMode ? state.churches.filter((church) => church.id === state.hostChurchId) : state.churches;
-
-    const rows = visibleChurches.filter((church) => {
-      const text = `${church.name} ${church.address || ''}`.toLowerCase();
-      return !query || text.includes(query);
-    });
+    const rows = visibleChurches.filter((church) => `${church.name} ${church.address || ''}`.toLowerCase().includes(query));
 
     elements.churchManagerList.innerHTML = rows.length
-      ? rows
-          .map(
-            (church) => `
+      ? rows.map((church) => `
           <article class="manager-item">
             <p><strong>${church.name}</strong></p>
             <p>${shortenAddress(church.address) || ''}</p>
@@ -130,9 +148,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
               ${state.isAdminMode ? `<button type="button" class="secondary" data-action="delete">${t(state, 'delete')}</button>` : ''}
             </div>
           </article>
-        `
-          )
-          .join('')
+        `).join('')
       : `<p class="help-text">${t(state, 'noChurchesFound')}</p>`;
   };
 
@@ -150,8 +166,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       .flatMap((church) => (church.events || []).map((event, eventIndex) => ({ church, event, eventIndex })))
       .filter(({ church, event }) => {
         const eventDate = new Date(`${event.date}T${event.time || '00:00'}`);
-        const matchesRange = mode === 'monthly' ? eventDate >= today && eventDate <= rangeEnd : eventDate >= today && eventDate <= rangeEnd;
-        return matchesRange && `${church.name} ${event.type}`.toLowerCase().includes(query);
+        return eventDate >= today && eventDate <= rangeEnd && `${church.name} ${event.type}`.toLowerCase().includes(query);
       })
       .sort((a, b) => `${a.event.date}${a.event.time}`.localeCompare(`${b.event.date}${b.event.time}`));
 
@@ -166,20 +181,16 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     elements.workspaceEventsNext.disabled = (state.workspaceEventsPage || 1) >= totalPages;
 
     elements.eventManagerList.innerHTML = visibleRows.length
-      ? visibleRows
-          .map(
-            ({ church, event, eventIndex }) => `
-            <article class="manager-item">
-              <p><strong>${event.type}</strong></p>
-              <p>${church.name} — ${event.date} ${event.time}</p>
-              <div class="queue-actions" data-id="${church.id}" data-event-index="${eventIndex}">
-                <button type="button" data-action="edit-event">${t(state, 'editPin')}</button>
-                <button type="button" class="secondary" data-action="delete-event">${t(state, 'delete')}</button>
-              </div>
-            </article>
-          `
-          )
-          .join('')
+      ? visibleRows.map(({ church, event, eventIndex }) => `
+          <article class="manager-item">
+            <p><strong>${event.type}</strong></p>
+            <p>${church.name} — ${event.date} ${event.time}</p>
+            <div class="queue-actions" data-id="${church.id}" data-event-index="${eventIndex}">
+              <button type="button" data-action="edit-event">${t(state, 'editPin')}</button>
+              <button type="button" class="secondary" data-action="delete-event">${t(state, 'delete')}</button>
+            </div>
+          </article>
+        `).join('')
       : `<p class="help-text">${t(state, 'noEventsForFilters')}</p>`;
   };
 
@@ -189,9 +200,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     const hostRequests = state.isAdminMode ? state.hostRequests : [];
 
     elements.suggestionsQueue.innerHTML = suggestions.length
-      ? suggestions
-          .map(
-            (item) => `
+      ? suggestions.map((item) => `
           <article class="queue-item">
             <p><strong>${item.subject || item.type || 'Suggestion'}</strong></p>
             <p>${item.message || ''}</p>
@@ -201,15 +210,11 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
               <button type="button" class="secondary" data-status="denied">${t(state, 'deny')}</button>
             </div>
           </article>
-        `
-          )
-          .join('')
+        `).join('')
       : `<p class="help-text">${t(state, 'noPendingSuggestions')}</p>`;
 
     elements.hostQueue.innerHTML = hostRequests.length
-      ? hostRequests
-          .map(
-            (item) => `
+      ? hostRequests.map((item) => `
           <article class="queue-item">
             <p><strong>${item.churchName || item.organization || item.fullName}</strong></p>
             <p>${item.position || ''} · ${item.phone || ''}</p>
@@ -222,51 +227,67 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
             </div>
             ${item.generatedHostCode ? `<p class="help-text"><strong>${t(state, 'hostPasscode')}:</strong> ${item.generatedHostCode}</p>` : ''}
           </article>
-        `
-          )
-          .join('')
+        `).join('')
       : `<p class="help-text">${t(state, 'noPendingHostRequests')}</p>`;
 
     elements.suggestionsQueue.classList.toggle('hidden', moderationMode !== 'suggestions');
     elements.hostQueue.classList.toggle('hidden', moderationMode !== 'hostRequests' || !state.isAdminMode);
   };
 
-  const startEditChurch = (churchId = null) => {
+  const setChurchFields = (church) => {
+    elements.churchForm.elements.name.value = church?.name || '';
+    elements.churchForm.elements.address.value = church?.address || '';
+    elements.churchForm.elements.googleMapsUrl.value = church?.googleMapsUrl || '';
+    elements.churchForm.elements.googlePlaceId.value = church?.googlePlaceId || '';
+    elements.churchForm.elements.lat.value = church?.lat ?? '';
+    elements.churchForm.elements.lng.value = church?.lng ?? '';
+    setCheckedValues(elements.churchForm, 'languages', church?.languages || []);
+    elements.churchForm.elements.website.value = church?.website || '';
+    elements.churchForm.elements.instagram.value = church?.instagram || '';
+    elements.churchForm.elements.facebook.value = church?.facebook || '';
+    elements.churchForm.elements.whatsapp.value = church?.whatsapp || '';
+  };
+
+  const startEditChurch = (churchId = null, options = {}) => {
     if (churchId && !canEditChurch(state, churchId)) return;
     const church = churchId ? state.churches.find((item) => item.id === churchId) : null;
+    const eventIndex = Number.isInteger(options.eventIndex) ? options.eventIndex : null;
+    const editingEvent = church && eventIndex !== null ? church.events?.[eventIndex] : null;
 
     elements.churchForm.reset();
     elements.eventsList.innerHTML = '';
+    elements.churchForm.elements.churchId.value = church?.id || '';
+    elements.churchForm.elements.eventIndex.value = eventIndex ?? '';
+    state.selectedChurchId = church?.id || null;
+    state.editingEventIndex = eventIndex;
+    elements.adminStatus.textContent = '';
 
     if (church) {
-      elements.churchForm.elements.churchId.value = church.id;
-      elements.churchForm.elements.name.value = church.name;
-      elements.churchForm.elements.address.value = church.address || '';
-      elements.churchForm.elements.googleMapsUrl.value = church.googleMapsUrl || '';
-      elements.churchForm.elements.googlePlaceId.value = church.googlePlaceId || '';
-      elements.churchForm.elements.lat.value = church.lat;
-      elements.churchForm.elements.lng.value = church.lng;
-      Array.from(elements.churchForm.elements.languages.options).forEach((option) => {
-        option.selected = (church.languages || []).includes(option.value);
-      });
-      elements.churchForm.elements.website.value = church.website || '';
-      elements.churchForm.elements.instagram.value = church.instagram || '';
-      elements.churchForm.elements.facebook.value = church.facebook || '';
-      elements.churchForm.elements.whatsapp.value = church.whatsapp || '';
-      (church.events || []).forEach((event) => addEventRow(elements.eventsList, elements.eventTemplate, event));
-      if (!church.events?.length) addEventRow(elements.eventsList, elements.eventTemplate);
-      state.selectedChurchId = church.id;
-      elements.adminTitle.textContent = t(state, 'editingChurch');
+      setChurchFields(church);
       updateDraftMarker(church.lat, church.lng);
     } else {
-      elements.churchForm.elements.churchId.value = '';
-      addEventRow(elements.eventsList, elements.eventTemplate);
-      elements.adminTitle.textContent = t(state, 'addUpdateChurch');
+      setCheckedValues(elements.churchForm, 'languages', []);
       clearDraftMarker();
     }
 
-    elements.adminStatus.textContent = '';
-    setEditingMode(true);
+    if (editingEvent) {
+      addEventRow(elements.eventsList, elements.eventTemplate, editingEvent);
+      elements.adminTitle.textContent = t(state, 'editingEvent');
+      elements.editorContext.textContent = `${church.name} — ${shortenAddress(church.address)}`;
+      elements.editorContext.classList.remove('hidden');
+      elements.saveEditButton.textContent = t(state, 'saveEvent');
+      elements.deleteEditingItemButton.classList.remove('hidden');
+      setEditingMode(true, 'event');
+    } else {
+      const events = church?.events?.length ? church.events : [defaultEvent()];
+      events.forEach((event) => addEventRow(elements.eventsList, elements.eventTemplate, event));
+      elements.adminTitle.textContent = church ? t(state, 'editingChurch') : t(state, state.isHostMode ? 'editMyChurch' : 'addUpdateChurch');
+      elements.editorContext.classList.add('hidden');
+      elements.editorContext.textContent = '';
+      elements.saveEditButton.textContent = t(state, 'saveChurch');
+      elements.deleteEditingItemButton.classList.toggle('hidden', !church);
+      setEditingMode(true, 'church');
+    }
   };
 
   const setWorkspaceVisibility = () => {
@@ -283,6 +304,14 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     elements.addChurchButton.classList.toggle('hidden', !state.isAdminMode);
     document.querySelectorAll('.admin-only').forEach((node) => node.classList.toggle('hidden', !state.isAdminMode));
     if (!visible) resetForm();
+  };
+
+  const persistChurch = async (church) => {
+    const index = state.churches.findIndex((item) => item.id === church.id);
+    if (index >= 0) state.churches[index] = church;
+    else state.churches.push(church);
+    await saveChurches(state.churches);
+    state.auditLog = await appendAuditLog({ action: index >= 0 ? 'church_updated' : 'church_created', label: church.name });
   };
 
   elements.addChurchButton.addEventListener('click', () => startEditChurch());
@@ -360,6 +389,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     state.workspaceEventsPage = 1;
     renderEventManager();
   });
+
   elements.workspaceEventModeButtons.forEach((button) => {
     button.addEventListener('click', () => {
       state.workspaceEventMode = button.dataset.workspaceEventMode;
@@ -368,14 +398,17 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       renderEventManager();
     });
   });
+
   elements.workspaceEventsPrev.addEventListener('click', () => {
     state.workspaceEventsPage = Math.max(1, (state.workspaceEventsPage || 1) - 1);
     renderEventManager();
   });
+
   elements.workspaceEventsNext.addEventListener('click', () => {
     state.workspaceEventsPage = (state.workspaceEventsPage || 1) + 1;
     renderEventManager();
   });
+
   elements.churchForm.elements.address.addEventListener('input', async (event) => populateAddressSuggestions(event.target.value));
   elements.churchForm.elements.address.addEventListener('change', autofillChurchAddress);
   elements.churchForm.elements.address.addEventListener('blur', autofillChurchAddress);
@@ -412,7 +445,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     if (!church) return;
 
     if (button.dataset.action === 'edit-event') {
-      startEditChurch(churchId);
+      startEditChurch(churchId, { eventIndex });
       return;
     }
 
@@ -484,18 +517,47 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       elements.workspaceStatus.textContent = t(state, 'addChurchFirst');
       return;
     }
-    startEditChurch(targetChurchId);
+    startEditChurch(targetChurchId, { eventIndex: (state.churches.find((item) => item.id === targetChurchId)?.events || []).length });
+    elements.eventsList.innerHTML = '';
+    addEventRow(elements.eventsList, elements.eventTemplate);
+    elements.churchForm.elements.eventIndex.value = String((state.churches.find((item) => item.id === targetChurchId)?.events || []).length);
+    elements.deleteEditingItemButton.classList.add('hidden');
   });
+
   elements.cancelEditButton.addEventListener('click', resetForm);
 
-  elements.toggleMapCapture.addEventListener('click', () => {
-    state.mapCaptureEnabled = !state.mapCaptureEnabled;
-    elements.toggleMapCapture.textContent = state.mapCaptureEnabled ? t(state, 'stopMapCapture') : t(state, 'startMapCapture');
-    elements.adminStatus.textContent = state.mapCaptureEnabled ? t(state, 'mapCaptureEnabledMsg') : '';
+  elements.deleteEditingItemButton.addEventListener('click', async () => {
+    const churchId = elements.churchForm.elements.churchId.value;
+    const church = state.churches.find((item) => item.id === churchId);
+    if (!church) return;
+
+    if (state.editorMode === 'event') {
+      const eventIndex = Number(elements.churchForm.elements.eventIndex.value);
+      if (Number.isInteger(eventIndex) && eventIndex >= 0 && eventIndex < church.events.length) {
+        church.events.splice(eventIndex, 1);
+        await saveChurches(state.churches);
+        state.auditLog = await appendAuditLog({ action: 'event_deleted', label: church.name });
+        renderEventManager();
+        renderMarkers();
+        renderChurchDetails(church, startEditChurch);
+        elements.workspaceStatus.textContent = t(state, 'eventDeleted');
+        resetForm();
+      }
+      return;
+    }
+
+    state.churches = state.churches.filter((item) => item.id !== churchId);
+    await saveChurches(state.churches);
+    state.auditLog = await appendAuditLog({ action: 'church_deleted', label: church.name });
+    renderMarkers();
+    renderChurchManager();
+    renderEventManager();
+    elements.workspaceStatus.textContent = t(state, 'churchDeleted');
+    resetForm();
   });
 
   map.on('click', async (event) => {
-    if (!state.mapCaptureEnabled || elements.adminPanel.classList.contains('hidden')) return;
+    if (elements.adminPanel.classList.contains('hidden') || state.editorMode !== 'church') return;
     elements.churchForm.elements.lat.value = event.latlng.lat.toFixed(6);
     elements.churchForm.elements.lng.value = event.latlng.lng.toFixed(6);
     updateDraftMarker(event.latlng.lat, event.latlng.lng);
@@ -512,44 +574,51 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   elements.churchForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const formData = new FormData(elements.churchForm);
-    const events = Array.from(elements.eventsList.querySelectorAll('.event-row'))
-      .map((node) => ({
-        date: node.querySelector('[name="date"]').value,
-        time: node.querySelector('[name="time"]').value,
-        type: Array.from(node.querySelector('[name="type"]').selectedOptions).map((option) => option.value).join(', '),
-        ageGroup: node.querySelector('[name="ageGroup"]').value || 'all',
-        recurrence: node.querySelector('[name="recurrence"]').value || 'none',
-        until: node.querySelector('[name="until"]').value || ''
-      }))
-      .filter((row) => row.date && row.time && row.type);
-
     const churchId = formData.get('churchId') || crypto.randomUUID();
     if (state.isHostMode && churchId !== state.hostChurchId && formData.get('churchId')) return;
 
     const existing = state.churches.find((item) => item.id === churchId);
+    const existingEvents = existing?.events || [];
+    const eventRows = readEventRows();
+
     const church = {
       id: churchId,
       hostPasscode: existing?.hostPasscode || hostCode(),
-      name: formData.get('name').trim(),
-      address: formData.get('address').trim(),
-      googleMapsUrl: formData.get('googleMapsUrl').trim(),
-      googlePlaceId: formData.get('googlePlaceId').trim(),
-      lat: Number(formData.get('lat')),
-      lng: Number(formData.get('lng')),
-      languages: Array.from(elements.churchForm.elements.languages.selectedOptions).map((option) => option.value),
-      website: formData.get('website').trim(),
-      instagram: formData.get('instagram').trim(),
-      facebook: formData.get('facebook').trim(),
-      whatsapp: formData.get('whatsapp').trim(),
-      events
+      name: state.editorMode === 'event' ? existing?.name || '' : formData.get('name').trim(),
+      address: state.editorMode === 'event' ? existing?.address || '' : formData.get('address').trim(),
+      googleMapsUrl: state.editorMode === 'event' ? existing?.googleMapsUrl || '' : formData.get('googleMapsUrl').trim(),
+      googlePlaceId: state.editorMode === 'event' ? existing?.googlePlaceId || '' : formData.get('googlePlaceId').trim(),
+      lat: state.editorMode === 'event' ? Number(existing?.lat) : Number(formData.get('lat')),
+      lng: state.editorMode === 'event' ? Number(existing?.lng) : Number(formData.get('lng')),
+      languages: state.editorMode === 'event' ? existing?.languages || [] : getCheckedValues(elements.churchForm, 'languages'),
+      website: state.editorMode === 'event' ? existing?.website || '' : formData.get('website').trim(),
+      instagram: state.editorMode === 'event' ? existing?.instagram || '' : formData.get('instagram').trim(),
+      facebook: state.editorMode === 'event' ? existing?.facebook || '' : formData.get('facebook').trim(),
+      whatsapp: state.editorMode === 'event' ? existing?.whatsapp || '' : formData.get('whatsapp').trim(),
+      events: existingEvents.slice()
     };
 
-    const index = state.churches.findIndex((item) => item.id === church.id);
-    if (index >= 0) state.churches[index] = church;
-    else state.churches.push(church);
+    if (state.editorMode === 'event') {
+      const eventIndex = Number(formData.get('eventIndex'));
+      const nextEvent = eventRows[0];
+      if (!nextEvent) return;
+      if (Number.isInteger(eventIndex) && eventIndex >= 0 && eventIndex < church.events.length) church.events[eventIndex] = nextEvent;
+      else church.events.push(nextEvent);
+      const churchIndex = state.churches.findIndex((item) => item.id === church.id);
+      if (churchIndex >= 0) state.churches[churchIndex] = church;
+      await saveChurches(state.churches);
+      state.auditLog = await appendAuditLog({ action: churchIndex >= 0 && eventIndex < existingEvents.length ? 'event_updated' : 'event_created', label: `${church.name}:${nextEvent.type}` });
+      renderMarkers();
+      renderChurchManager();
+      renderEventManager();
+      renderChurchDetails(church, startEditChurch);
+      elements.workspaceStatus.textContent = t(state, 'eventSaved');
+      resetForm();
+      return;
+    }
 
-    await saveChurches(state.churches);
-    state.auditLog = await appendAuditLog({ action: index >= 0 ? 'church_updated' : 'church_created', label: church.name });
+    church.events = eventRows;
+    await persistChurch(church);
     renderMarkers();
     renderChurchManager();
     renderEventManager();

@@ -15,6 +15,7 @@ export const TRANSLATIONS = {
     heroTitle: 'Connecting young people to local churches across Montreal.',
     heroBody: 'Our vision is to help every youth and young adult quickly find a nearby Bible study, prayer meeting, church service, or fellowship this week.',
     instagramLink: 'Follow the movement on Instagram',
+    followUs: 'Follow us on our socials:',
     findChurch: 'Find a church near you',
     addressSearch: 'Your address',
     radius: 'Radius',
@@ -39,7 +40,9 @@ export const TRANSLATIONS = {
     addUpdateChurch: 'Add / update church',
     editMyChurch: 'Edit my church',
     editingChurch: 'Editing church',
+    editingEvent: 'Editing event',
     churchSaved: 'Church saved successfully.',
+    eventSaved: 'Event saved successfully.',
     churchName: 'Church name',
     address: 'Address',
     googleMapsPinUrl: 'Google Maps pin URL',
@@ -58,6 +61,7 @@ export const TRANSLATIONS = {
     gatherings: 'Gatherings',
     addGathering: '+ Add gathering',
     saveChurch: 'Save church',
+    saveEvent: 'Save event',
     cancelEdit: 'Cancel edit',
     openMaps: 'Open pin in maps app',
     noGatherings: 'No gatherings listed in next 7 days.',
@@ -171,7 +175,6 @@ export const TRANSLATIONS = {
     addressLookupFailed: 'We could not recognize that Montreal address yet.',
     addressAutofilled: 'Address, coordinates, and pin updated.',
     admCodeNotFound: 'ADM passcode not recognized.',
-    mapCaptureEnabledMsg: 'Map capture is enabled. Click the map to fill the address and coordinates.',
     moderationUpdated: 'Review status updated.',
     newHostChurchName: 'New host church',
     eventDeleted: 'Event deleted.',
@@ -197,6 +200,7 @@ export const TRANSLATIONS = {
     heroTitle: 'Connecter les jeunes aux églises locales partout à Montréal.',
     heroBody: 'Notre vision est d’aider chaque jeune à trouver rapidement une étude biblique, une réunion de prière, un culte ou un temps de fraternité cette semaine.',
     instagramLink: 'Suivre le mouvement sur Instagram',
+    followUs: 'Suivez-nous sur nos réseaux :',
     findChurch: 'Trouver une église près de vous',
     addressSearch: 'Votre adresse',
     radius: 'Rayon',
@@ -221,7 +225,9 @@ export const TRANSLATIONS = {
     addUpdateChurch: 'Ajouter / modifier une église',
     editMyChurch: 'Modifier mon église',
     editingChurch: 'Modification de l’église',
+    editingEvent: 'Modification de l’événement',
     churchSaved: 'Église enregistrée.',
+    eventSaved: 'Événement enregistré.',
     churchName: "Nom de l'église",
     address: 'Adresse',
     googleMapsPinUrl: 'URL du point Google Maps',
@@ -240,6 +246,7 @@ export const TRANSLATIONS = {
     gatherings: 'Rencontres',
     addGathering: '+ Ajouter rencontre',
     saveChurch: "Enregistrer l'église",
+    saveEvent: "Enregistrer l’événement",
     cancelEdit: 'Annuler',
     openMaps: 'Ouvrir le point dans une app cartes',
     noGatherings: 'Aucune rencontre indiquée dans les 7 prochains jours.',
@@ -353,7 +360,6 @@ export const TRANSLATIONS = {
     addressLookupFailed: 'Cette adresse à Montréal n’a pas encore été reconnue.',
     addressAutofilled: 'Adresse, coordonnées et point mis à jour.',
     admCodeNotFound: 'Code ADM non reconnu.',
-    mapCaptureEnabledMsg: 'La capture carte est active. Cliquez sur la carte pour remplir l’adresse et les coordonnées.',
     moderationUpdated: 'Statut de révision mis à jour.',
     newHostChurchName: 'Nouvelle église hôte',
     eventDeleted: 'Événement supprimé.',
@@ -380,7 +386,6 @@ export function applyLanguage(state, elements, onSelectedChurchRender) {
 
   elements.toggleAdmin.textContent = state.isAdminMode ? t(state, 'closeAdm') : t(state, 'admMode');
   elements.toggleHost.textContent = state.isHostMode ? t(state, 'leaveHostMode') : t(state, 'hostMode');
-  elements.toggleMapCapture.textContent = state.mapCaptureEnabled ? t(state, 'stopMapCapture') : t(state, 'startMapCapture');
   elements.adminTitle.textContent = state.selectedChurchId ? t(state, 'editingChurch') : t(state, state.isHostMode ? 'editMyChurch' : 'addUpdateChurch');
 
   if (state.selectedChurchId) onSelectedChurchRender();

@@ -47,7 +47,7 @@ a {
   top: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 1.5rem;
   padding: 1rem clamp(1.1rem, 2vw, 2rem);
@@ -99,11 +99,6 @@ a {
   gap: 1rem;
 }
 
-.header-social {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
 
 .header-nav a {
   padding: 0.55rem 0.9rem;
@@ -308,7 +303,7 @@ a {
 
 .editor-shell {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
 }
@@ -325,6 +320,21 @@ a {
   gap: 0.75rem;
 }
 
+.editor-context {
+  margin: -0.25rem 0 0;
+}
+
+.editor-footer {
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+
+.editor-footer > :nth-child(2) {
+  margin-left: auto;
+}
+
 #editor-map-slot,
 #public-map-slot {
   min-height: 100%;
@@ -334,6 +344,32 @@ a {
   resize: vertical;
   overflow: auto;
   min-height: 360px;
+}
+
+.checkbox-group {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 0.9rem 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.65rem 1rem;
+}
+
+.checkbox-group legend {
+  padding: 0 0.35rem;
+  font-weight: 700;
+}
+
+.checkbox-group label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
 }
 
 .stack-list {
@@ -411,7 +447,7 @@ a {
 
 .calendar-layout.compact {
   display: grid;
-  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
 }
 
@@ -420,11 +456,7 @@ a {
 }
 
 .calendar-layout.compact.show-calendar-filters .calendar-filters {
-  display: block;
-}
-
-.calendar-layout.compact.show-calendar-filters {
-  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  display: grid;
 }
 
 .calendar-toolbar {
@@ -447,8 +479,8 @@ a {
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
-  max-height: 720px;
-  overflow: auto;
+  width: 100%;
+  overflow: visible;
 }
 
 .calendar-grid {
@@ -663,26 +695,34 @@ fieldset legend {
 
 .social-footer {
   display: flex;
+  align-items: center;
   gap: 0.8rem;
   margin-top: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.social-footer-label {
+  font-weight: 700;
+  color: var(--muted);
 }
 
 .social-icon {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(51, 78, 104, 0.1);
-  color: var(--brand-strong);
-  font-weight: 800;
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  box-shadow: var(--shadow-soft);
   text-decoration: none;
 }
 
-.social-icon-header {
-  width: 2.6rem;
-  height: 2.6rem;
+.social-icon svg {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: block;
 }
 
 .site-footer {
@@ -766,10 +806,6 @@ body.editing-mode #admin-panel {
     justify-content: flex-start;
   }
 
-  .header-social {
-    justify-content: flex-start;
-  }
-
   .details-sidecard,
   #map {
     min-height: 420px;
@@ -823,5 +859,79 @@ body.editing-mode #admin-panel {
 
   .segment-btn {
     flex: 1 1 140px;
+  }
+}
+
+
+.church-form-event-mode .church-fields,
+.church-form-event-mode .editor-map-column,
+.church-form-event-mode [data-i18n="editingFocusHint"] {
+  display: none;
+}
+
+.church-form-event-mode .event-editor-block {
+  margin: 0;
+}
+
+.event-row {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.event-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.event-row-header strong {
+  font-size: 1rem;
+}
+
+.remove-event,
+.danger {
+  color: #8a2330;
+  border-color: rgba(138, 35, 48, 0.18);
+  background: rgba(255, 240, 241, 0.95);
+}
+
+.remove-event:hover,
+.danger:hover {
+  background: rgba(255, 230, 233, 1);
+}
+
+.calendar-grid-week,
+.calendar-grid-month {
+  width: 100%;
+}
+
+.calendar-cell-events .help-text {
+  margin: 0;
+}
+
+.calendar-badge {
+  cursor: pointer;
+}
+
+.calendar-inline-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+@media (max-width: 900px) {
+  .editor-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .editor-footer > :nth-child(2) {
+    margin-left: 0;
   }
 }
