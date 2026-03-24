@@ -1000,3 +1000,65 @@ body.editing-mode #admin-panel {
 .church-form-new-event-mode .event-host-fields {
   display: grid !important;
 }
+
+.event-editor-block {
+  width: 100%;
+}
+
+.event-row {
+  width: 100%;
+  padding: 1.25rem;
+  gap: 1rem;
+}
+
+.event-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.event-row-kicker {
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.event-row-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(180px, 0.75fr) minmax(150px, 0.6fr);
+  gap: 0.9rem;
+  align-items: end;
+}
+
+.checkbox-group-list {
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  max-height: none;
+  overflow: visible;
+}
+
+.checkbox-group-list label {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 0.65rem !important;
+  white-space: normal;
+  font-weight: 600;
+}
+
+.checkbox-group-list label span {
+  display: inline;
+}
+
+.checkbox-group-list input[type="checkbox"] {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .event-row-top,
+  .checkbox-group-list {
+    grid-template-columns: 1fr;
+  }
+}
