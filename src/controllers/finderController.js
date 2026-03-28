@@ -1,4 +1,4 @@
-import { geocodeAddress } from '../services/geocoding.js';
+import { geocodeAddress, searchMontrealAddresses } from '../services/geocoding.js';
 import { haversineKm } from '../utils/distance.js';
 import { t } from '../i18n.js';
 
