@@ -792,6 +792,14 @@ body.editing-mode #admin-panel {
   box-shadow: 0 24px 60px rgba(17, 32, 51, 0.18);
 }
 
+body.editing-mode .workspace-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.editing-mode .workspace-grid > .workspace-column:first-child {
+  display: none;
+}
+
 @media (max-width: 1120px) {
   .site-header,
   .workspace-grid,
@@ -1027,13 +1035,13 @@ body.editing-mode #admin-panel {
 
 .event-row-top {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(180px, 0.75fr) minmax(150px, 0.6fr);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.9rem;
   align-items: end;
 }
 
 .checkbox-group-list {
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   max-height: none;
   overflow: visible;
 }
@@ -1045,6 +1053,7 @@ body.editing-mode #admin-panel {
   justify-content: flex-start !important;
   gap: 0.65rem !important;
   white-space: normal;
+  overflow-wrap: anywhere;
   font-weight: 600;
 }
 
