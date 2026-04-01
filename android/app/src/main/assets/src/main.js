@@ -82,7 +82,9 @@ const elements = {
   editorMapSlot: document.querySelector('#editor-map-slot'),
   editorContext: document.querySelector('#editor-context'),
   saveEditButton: document.querySelector('#save-edit'),
-  deleteEditingItemButton: document.querySelector('#delete-editing-item')
+  deleteEditingItemButton: document.querySelector('#delete-editing-item'),
+  menuToggle: document.querySelector('#menu-toggle'),
+  siteHeader: document.querySelector('.site-header')
 };
 
 const state = {
@@ -387,6 +389,60 @@ function setupNavigation() {
   });
 }
 
+function setupMobileMenu() {
+  elements.menuToggle?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = elements.siteHeader.classList.toggle('menu-open');
+    elements.menuToggle.setAttribute('aria-expanded', isOpen);
+  });
+
+  // Close menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (elements.siteHeader.classList.contains('menu-open') && !elements.siteHeader.contains(e.target)) {
+      elements.siteHeader.classList.remove('menu-open');
+      elements.menuToggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  // Close menu when clicking links
+  elements.siteHeader.querySelectorAll('.header-nav a').forEach(link => {
+    link.addEventListener('click', () => {
+      elements.siteHeader.classList.remove('menu-open');
+      elements.menuToggle.setAttribute('aria-expanded', 'false');
+    });
+  });
+
+  // Close menu when clicking buttons (like host/adm mode)
+  elements.siteHeader.querySelectorAll('.header-controls button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      elements.siteHeader.classList.remove('menu-open');
+      elements.menuToggle.setAttribute('aria-expanded', 'false');
+    });
+  });
+}
+
+function setupScrollHeader() {
+  let lastScroll = 0;
+  const header = elements.siteHeader;
+
+  window.addEventListener('scroll', () => {
+    const currentScroll = window.pageYOffset;
+    if (currentScroll <= 0) {
+      header.classList.remove('header-hidden');
+      return;
+    }
+
+    if (currentScroll > lastScroll && !header.classList.contains('header-hidden')) {
+      // scroll down
+      header.classList.add('header-hidden');
+    } else if (currentScroll < lastScroll && header.classList.contains('header-hidden')) {
+      // scroll up
+      header.classList.remove('header-hidden');
+    }
+    lastScroll = currentScroll;
+  });
+}
+
 async function init() {
   state.churches = await loadChurches();
   state.suggestions = await loadSuggestions();
@@ -430,6 +486,8 @@ async function init() {
   setupMapFilters(finderController);
   setupPublicForms();
   setupHardeningTools();
+  setupMobileMenu();
+  setupScrollHeader();
   showFindView('map');
   rerenderMarkers();
   renderCalendarList({ state, elements, onSuggestEventUpdate: openEventSuggestion, onEditEvent: editCalendarEvent, onDeleteEvent: deleteCalendarEvent });

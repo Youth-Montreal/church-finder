@@ -20,23 +20,28 @@
         <div class="brand-cross" aria-hidden="true"></div>
       </a>
 
-      <nav class="header-nav" aria-label="Main navigation">
-        <a href="#about-us" data-i18n="navAbout">About us</a>
-        <a href="#find-church" data-i18n="navFind">Find a church</a>
-        <a href="#contact-us" data-i18n="navContact">Contact us</a>
-      </nav>
+      <button id="menu-toggle" class="menu-toggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span class="hamburger-icon"></span>
+      </button>
 
+      <div class="header-menu-container">
+        <nav class="header-nav" aria-label="Main navigation">
+          <a href="#about-us" data-i18n="navAbout">About us</a>
+          <a href="#find-church" data-i18n="navFind">Find a church</a>
+          <a href="#contact-us" data-i18n="navContact">Contact us</a>
+        </nav>
 
-      <div class="header-controls">
-        <label class="language-picker">
-          <span data-i18n="language">Language</span>
-          <select id="language-select">
-            <option value="en">English</option>
-            <option value="fr-CA">Français (Canada)</option>
-          </select>
-        </label>
-        <button id="toggle-host" type="button" class="secondary" data-i18n="hostMode">Host mode</button>
-        <button id="toggle-admin" type="button" data-i18n="admMode">ADM Mode</button>
+        <div class="header-controls">
+          <label class="language-picker">
+            <span data-i18n="language">Language</span>
+            <select id="language-select">
+              <option value="en">English</option>
+              <option value="fr-CA">Français (Canada)</option>
+            </select>
+          </label>
+          <button id="toggle-host" type="button" class="secondary" data-i18n="hostMode">Host mode</button>
+          <button id="toggle-admin" type="button" data-i18n="admMode">ADM Mode</button>
+        </div>
       </div>
     </header>
 
@@ -448,13 +453,6 @@
         </div>
       </div>
     </template>
-
-    <datalist id="saved-churches"></datalist>
-
-    <datalist id="available-languages">
-      <option value="English"></option>
-      <option value="Français"></option>
-    </datalist>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script type="module" src="src/main.js"></script>
