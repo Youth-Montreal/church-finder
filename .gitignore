@@ -6,7 +6,19 @@ android/keys/
 android/.gradle/
 android/build/
 android/app/build/
+android/captures/
+android/local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# Native/NDK generated folders
+android/.cxx/
+android/.externalNativeBuild/
+.gradle/
 
 # macOS / editor junk
 .DS_Store
+Thumbs.db
 *.swp
