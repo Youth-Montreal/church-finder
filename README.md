@@ -61,6 +61,16 @@ Mobile action icons are now regular files so you can tweak them anytime:
 
 The mobile button CSS uses those files directly (`styles.css`), instead of embedded data-URI SVG blobs.
 
+## Event editor layout notes (web + Android asset parity)
+
+- The event editor template intentionally keeps:
+  - no inner \"Gathering details\" label row (to reduce nested visual noise),
+  - `From` + `at` fields grouped in a dedicated two-column row (`.event-row-time-group`),
+  - `Age group` + `Repeats` grouped in `.event-row-meta-grid`.
+- Both files must stay aligned when editing this UX:
+  - `index.html` + `styles.css`
+  - `android/app/src/main/assets/index.html` + `android/app/src/main/assets/styles.css`
+
 ## Android build + Play Store prep
 
 The repository includes a native Android wrapper in `android/` that loads this web app in a WebView and syncs site files into app assets on each build.
