@@ -1478,3 +1478,38 @@ body.editing-mode .workspace-grid > .workspace-column:first-child {
   color: var(--brand);
   margin-top: 0.2rem;
 }
+
+/* Final event-editor layout overrides (keep at end to win cascade). */
+.event-row {
+  display: grid;
+  grid-template-columns: 1fr !important;
+  grid-template-areas:
+    "actions"
+    "top"
+    "types"
+    "meta";
+  align-items: stretch;
+}
+
+.event-row-header { grid-area: actions; justify-content: flex-start; }
+.event-row-top { grid-area: top; grid-template-columns: minmax(200px, 1.4fr) minmax(140px, 1fr) minmax(140px, 1fr); }
+.checkbox-select-list { grid-area: types; }
+.event-row-meta-grid { grid-area: meta; }
+
+.event-row-top input[type="date"],
+.event-row-top input[type="time"] {
+  min-width: 0;
+  text-overflow: clip;
+  overflow: visible;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .event-row-top {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .event-row-top > label:first-child {
+    grid-column: 1 / -1;
+  }
+}
