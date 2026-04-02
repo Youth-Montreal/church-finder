@@ -65,8 +65,12 @@ The mobile button CSS uses those files directly (`styles.css`), instead of embed
 
 - The event editor template intentionally keeps:
   - no inner \"Gathering details\" label row (to reduce nested visual noise),
-  - `From` + `at` fields grouped in a dedicated two-column row (`.event-row-time-group`),
+  - `From` + `at` fields grouped in a dedicated row (`.event-row-time-group`),
+  - line break before `Event type` block (event type should not sit on the same row as date/time on desktop),
   - `Age group` + `Repeats` grouped in `.event-row-meta-grid`.
+- Admin church form grouping on desktop:
+  - `Google Maps pin URL + Google Place ID + Latitude + Longitude`
+  - `Website + Instagram + Facebook (+ WhatsApp kept on same social row grid)`
 - Both files must stay aligned when editing this UX:
   - `index.html` + `styles.css`
   - `android/app/src/main/assets/index.html` + `android/app/src/main/assets/styles.css`
