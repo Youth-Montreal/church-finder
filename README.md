@@ -57,6 +57,11 @@ Quick fix during runtime: click the sync chip and paste the deployed Apps Script
 For POST writes, this project now sends a **simple request body** (no custom JSON header) to avoid browser CORS preflight failures against Apps Script web apps.  
 If you reintroduce custom `Content-Type: application/json`, some deployments may stop accepting browser writes.
 
+### Startup sync deadlock guard
+
+Initialization now uses a bounded retry window for startup sync and always clears the loading overlay in a `finally` block.  
+If cloud calls stall/fail, the UI falls back to available local data instead of staying blocked behind the loader.
+
 ### Sync indicator in UI
 
 - Header chip shows current status:

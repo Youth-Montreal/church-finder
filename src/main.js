@@ -633,34 +633,67 @@ function setupAutoSync() {
 
 async function init() {
   elements.loadingOverlay?.classList.remove('hidden');
-  await retryPendingSync();
-  state.churches = await loadChurches();
-  state.suggestions = await loadSuggestions();
-  state.hostRequests = await loadHostRequests();
-  state.auditLog = await loadAuditLog();
+  try {
+    await Promise.race([
+      retryPendingSync(),
+      new Promise((resolve) => setTimeout(resolve, 9000))
+    ]);
+    state.churches = await loadChurches();
+    state.suggestions = await loadSuggestions();
+    state.hostRequests = await loadHostRequests();
+    state.auditLog = await loadAuditLog();
 
-  const adminController = attachAdminController({
-    state,
-    map,
-    elements,
-    renderMarkers: () => rerenderMarkers(),
-    renderChurchDetails: (church, onEdit) => renderDetails(church, onEdit)
-  });
-  startEditChurch = adminController.startEditChurch;
-  renderModeration = adminController.renderModeration;
-  renderChurchManager = adminController.renderChurchManager;
+    const adminController = attachAdminController({
+      state,
+      map,
+      elements,
+      renderMarkers: () => rerenderMarkers(),
+      renderChurchDetails: (church, onEdit) => renderDetails(church, onEdit)
+    });
+    startEditChurch = adminController.startEditChurch;
+    renderModeration = adminController.renderModeration;
+    renderChurchManager = adminController.renderChurchManager;
 
-  const finderController = attachFinderController({
-    state,
-    map,
-    elements,
-    renderMarkers: () => rerenderMarkers(),
-    renderChurchDetails: (church) => renderDetails(church, startEditChurch)
-  });
+    const finderController = attachFinderController({
+      state,
+      map,
+      elements,
+      renderMarkers: () => rerenderMarkers(),
+      renderChurchDetails: (church) => renderDetails(church, startEditChurch)
+    });
 
-  elements.languageSelect.value = TRANSLATIONS[state.language] ? state.language : 'en';
-  elements.languageSelect.addEventListener('change', () => {
-    state.language = elements.languageSelect.value;
+    elements.languageSelect.value = TRANSLATIONS[state.language] ? state.language : 'en';
+    elements.languageSelect.addEventListener('change', () => {
+      state.language = elements.languageSelect.value;
+      applyLanguage(state, elements, () => {
+        const church = state.churches.find((item) => item.id === state.selectedChurchId);
+        if (church) renderDetails(church, startEditChurch);
+        renderModeration();
+        renderChurchManager();
+        renderAuditLog();
+      });
+      elements.syncStatus?.dispatchEvent(new Event('sync-refresh'));
+    });
+
+    setupNavigation();
+    setupMapResizeSupport();
+    setupCalendar();
+    setupSyncStatus();
+    setupMapFilters(finderController);
+    setupPublicForms();
+    setupHardeningTools();
+    setupMobileMenu();
+    setupScrollHeader();
+    setupAutoSync(); // Start polling
+
+    elements.toggleChurchSearch?.addEventListener('click', () => {
+      elements.churchSearchWrap?.classList.toggle('hidden');
+      if (!elements.churchSearchWrap?.classList.contains('hidden')) elements.churchManagerSearch?.focus();
+    });
+    showFindView('map');
+    rerenderMarkers();
+    updateCalendarList();
+    renderAuditLog();
     applyLanguage(state, elements, () => {
       const church = state.churches.find((item) => item.id === state.selectedChurchId);
       if (church) renderDetails(church, startEditChurch);
@@ -668,37 +701,12 @@ async function init() {
       renderChurchManager();
       renderAuditLog();
     });
-    elements.syncStatus?.dispatchEvent(new Event('sync-refresh'));
-  });
-
-  setupNavigation();
-  setupMapResizeSupport();
-  setupCalendar();
-  setupSyncStatus();
-  setupMapFilters(finderController);
-  setupPublicForms();
-  setupHardeningTools();
-  setupMobileMenu();
-  setupScrollHeader();
-  setupAutoSync(); // Start polling
-
-  elements.toggleChurchSearch?.addEventListener('click', () => {
-    elements.churchSearchWrap?.classList.toggle('hidden');
-    if (!elements.churchSearchWrap?.classList.contains('hidden')) elements.churchManagerSearch?.focus();
-  });
-  showFindView('map');
-  rerenderMarkers();
-  updateCalendarList();
-  renderAuditLog();
-  applyLanguage(state, elements, () => {
-    const church = state.churches.find((item) => item.id === state.selectedChurchId);
-    if (church) renderDetails(church, startEditChurch);
-    renderModeration();
-    renderChurchManager();
-    renderAuditLog();
-  });
-  resetMapView(map);
-  elements.loadingOverlay?.classList.add('hidden');
+    resetMapView(map);
+  } catch (error) {
+    console.error('Initialization fallback triggered:', error);
+  } finally {
+    elements.loadingOverlay?.classList.add('hidden');
+  }
 }
 
 init();
