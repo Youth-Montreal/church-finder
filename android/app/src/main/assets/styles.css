@@ -1226,6 +1226,10 @@ body.editing-mode .workspace-grid > .workspace-column:first-child {
   justify-content: space-between;
 }
 
+.event-row-header-actions {
+  justify-content: flex-end;
+}
+
 .event-row-kicker {
   font-size: 0.82rem;
   font-weight: 800;
@@ -1267,6 +1271,9 @@ body.editing-mode .workspace-grid > .workspace-column:first-child {
 .field-wa { grid-area: wa; }
 
 .event-row-time-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
   min-width: 0;
 }
 
@@ -1284,6 +1291,10 @@ body.editing-mode .workspace-grid > .workspace-column:first-child {
   overflow: visible;
   white-space: nowrap;
   padding-right: 2rem;
+}
+
+.event-row-meta-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .checkbox-group-list {
@@ -1536,4 +1547,53 @@ body.editing-mode .workspace-grid > .workspace-column:first-child {
 .event-editor-block .event-row + .event-row {
   border-top: 1px solid var(--line);
   padding-top: 1.25rem !important;
+}
+
+/* Workspace + moderation + loading refinements */
+.collapsed-search.hidden { display: none; }
+.audit-hardening-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+.calendar-badge { position: relative; }
+.calendar-badge-manageable:hover { background: rgba(51, 78, 104, 0.14); }
+.calendar-danger-icon {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  color: #d00000;
+  font-size: 0.82rem;
+}
+input[type="date"],
+input[type="time"] { padding-right: 2.6rem; }
+
+.app-loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 18, 34, 0.55);
+  backdrop-filter: blur(3px);
+  z-index: 5000;
+  display: grid;
+  place-items: center;
+  gap: 0.7rem;
+  color: #e5eefb;
+}
+.loading-spinner {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  border: 6px solid rgba(229, 238, 251, 0.25);
+  border-top-color: #e5eefb;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 900px) {
+  .icon-mobile-btn::before { content: '●'; }
+  .audit-hardening-toolbar .finder-actions { gap: 0.35rem; }
+  .audit-hardening-toolbar .finder-actions button,
+  .audit-hardening-toolbar .finder-actions .file-input-label { padding: 0.55rem 0.7rem; }
 }

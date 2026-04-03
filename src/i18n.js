@@ -139,9 +139,10 @@ export const TRANSLATIONS = {
     myChurchTitle: 'My church',
     placesMode: 'Churches',
     eventsMode: 'Events',
-    suggestionsTab: 'Suggestions',
+    suggestionsTab: 'Reports',
     hostRequestsTab: 'Host requests',
-    reviewSuggestionsTitle: 'Review suggestions',
+    reviewSuggestionsTitle: 'Review reports',
+    reviewHostRequestsTitle: 'Review host requests',
     findChurchEyebrow: 'Discover',
     mapView: 'Map view',
     calendarViewToggle: 'Calendar view',
@@ -200,7 +201,9 @@ export const TRANSLATIONS = {
     syncUpToDate: 'Cloud synced',
     syncUpToDateHint: 'All changes are up to date in the cloud database.',
     syncEndpoint: 'Sync endpoint',
-    enterSyncUrlPrompt: 'Paste your deployed Google Apps Script URL (leave blank to disable cloud sync):'
+    enterSyncUrlPrompt: 'Paste your deployed Google Apps Script URL (leave blank to disable cloud sync):',
+    otherLanguage: 'Others',
+    loadingData: 'Loading data…'
   },
   'fr-CA': {
     language: 'Langue',
@@ -340,9 +343,10 @@ export const TRANSLATIONS = {
     myChurchTitle: 'Mon église',
     placesMode: 'Églises',
     eventsMode: 'Événements',
-    suggestionsTab: 'Suggestions',
+    suggestionsTab: 'Rapports',
     hostRequestsTab: 'Demandes hôte',
-    reviewSuggestionsTitle: 'Réviser les suggestions',
+    reviewSuggestionsTitle: 'Réviser les rapports',
+    reviewHostRequestsTitle: 'Réviser les demandes hôte',
     findChurchEyebrow: 'Découvrir',
     mapView: 'Vue carte',
     calendarViewToggle: 'Vue calendrier',
@@ -400,7 +404,9 @@ export const TRANSLATIONS = {
     syncUpToDate: 'Cloud à jour',
     syncUpToDateHint: 'Toutes les modifications sont synchronisées dans la base cloud.',
     syncEndpoint: 'Endpoint de sync',
-    enterSyncUrlPrompt: 'Collez l’URL déployée de votre Google Apps Script (laissez vide pour désactiver la sync cloud) :'
+    enterSyncUrlPrompt: 'Collez l’URL déployée de votre Google Apps Script (laissez vide pour désactiver la sync cloud) :',
+    otherLanguage: 'Autres',
+    loadingData: 'Chargement des données…'
   }
 };
 
