@@ -5,12 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="41174631-d8b1-4a17-999e-397d79071a6a" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/assets/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/assets/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/assets/src/controllers/adminController.js" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/src/controllers/adminController.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/assets/src/i18n.js" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/src/i18n.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/assets/src/main.js" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/src/main.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/assets/src/ui/calendarView.js" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/src/ui/calendarView.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/assets/src/utils/address.js" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/src/utils/address.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/assets/src/services/repository.js" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/src/services/repository.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/assets/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/styles.css" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -206,12 +206,12 @@
       <map>
         <entry key="org.youthmtl.app">
           <value>
-            <CheckInfo lastCheckTimestamp="1775133082370" />
+            <CheckInfo lastCheckTimestamp="1775219656282" />
           </value>
         </entry>
         <entry key="org.youthmtl.app.test">
           <value>
-            <CheckInfo lastCheckTimestamp="1775133082371" />
+            <CheckInfo lastCheckTimestamp="1775219656269" />
           </value>
         </entry>
       </map>

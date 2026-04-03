@@ -18,6 +18,16 @@
       <div class="loading-spinner" aria-hidden="true"></div>
       <p data-i18n="loadingData">Loading data…</p>
     </div>
+
+    <div id="offline-warning" class="offline-warning hidden" aria-live="assertive">
+      <span class="warning-icon">⚠️</span>
+      <div class="warning-content">
+        <strong data-i18n="youAreOffline">You're offline</strong>
+        <p data-i18n="youAreOfflineHint">Sync failed. You can still browse, but creating or modifying data requires a connection.</p>
+      </div>
+      <button type="button" class="close-warning" aria-label="Dismiss">&times;</button>
+    </div>
+
     <header class="site-header">
       <a class="brand-block" href="#about-us" aria-label="Youth Montreal home">
         <div class="brand-logo">YOUTH<br />MTL</div>

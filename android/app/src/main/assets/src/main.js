@@ -93,7 +93,8 @@ const elements = {
   calToday: document.querySelector('#cal-today'),
   calNextDay: document.querySelector('#cal-next-day'),
   syncStatus: document.querySelector('#sync-status'),
-  loadingOverlay: document.querySelector('#app-loading-overlay')
+  loadingOverlay: document.querySelector('#app-loading-overlay'),
+  offlineWarning: document.querySelector('#offline-warning')
 };
 
 const state = {
@@ -342,9 +343,17 @@ function setupSyncStatus() {
   if (!elements.syncStatus) return;
 
   const updateSyncStatus = (syncState = getSyncState()) => {
-    const { hasRemote, pendingCount } = syncState;
+    const { hasRemote, pendingCount, lastSyncError } = syncState;
     const activeUrl = getConfiguredSyncUrl();
     elements.syncStatus.classList.remove('sync-local', 'sync-pending', 'sync-ok');
+
+    // Offline mode management
+    const isOffline = lastSyncError && hasRemote;
+    document.body.classList.toggle('offline-mode', !!isOffline);
+    if (elements.offlineWarning) {
+       elements.offlineWarning.classList.toggle('hidden', !isOffline);
+    }
+
     if (!hasRemote) {
       elements.syncStatus.classList.add('sync-local');
       elements.syncStatus.textContent = t(state, 'syncLocalOnly');
@@ -372,45 +381,11 @@ function setupSyncStatus() {
     }
     await retryPendingSync();
   });
-  elements.syncStatus.addEventListener('sync-refresh', () => updateSyncStatus());
-  subscribeSyncState(updateSyncStatus);
-  window.addEventListener('online', () => retryPendingSync());
-}
 
-function setupSyncStatus() {
-  if (!elements.syncStatus) return;
-
-  const updateSyncStatus = (syncState = getSyncState()) => {
-    const { hasRemote, pendingCount } = syncState;
-    const activeUrl = getConfiguredSyncUrl();
-    elements.syncStatus.classList.remove('sync-local', 'sync-pending', 'sync-ok');
-    if (!hasRemote) {
-      elements.syncStatus.classList.add('sync-local');
-      elements.syncStatus.textContent = t(state, 'syncLocalOnly');
-      elements.syncStatus.title = t(state, 'syncLocalOnlyHint');
-      return;
-    }
-    if (pendingCount > 0) {
-      elements.syncStatus.classList.add('sync-pending');
-      elements.syncStatus.textContent = `${t(state, 'syncPending')} (${pendingCount})`;
-      elements.syncStatus.title = `${t(state, 'syncPendingHint')}${activeUrl ? `\n${t(state, 'syncEndpoint')}: ${activeUrl}` : ''}`;
-      return;
-    }
-    elements.syncStatus.classList.add('sync-ok');
-    elements.syncStatus.textContent = t(state, 'syncUpToDate');
-    elements.syncStatus.title = `${t(state, 'syncUpToDateHint')}${activeUrl ? `\n${t(state, 'syncEndpoint')}: ${activeUrl}` : ''}`;
-  };
-
-  elements.syncStatus.addEventListener('click', async () => {
-    const syncState = getSyncState();
-    if (!syncState.hasRemote) {
-      const url = prompt(t(state, 'enterSyncUrlPrompt'), getConfiguredSyncUrl() || '');
-      if (url === null) return;
-      setConfiguredSyncUrl(url);
-      if (!String(url || '').trim()) return;
-    }
-    await retryPendingSync();
+  elements.offlineWarning?.querySelector('.close-warning')?.addEventListener('click', () => {
+    elements.offlineWarning.classList.add('hidden');
   });
+
   elements.syncStatus.addEventListener('sync-refresh', () => updateSyncStatus());
   subscribeSyncState(updateSyncStatus);
   window.addEventListener('online', () => retryPendingSync());
@@ -618,49 +593,88 @@ function setupAutoSync() {
     // Only auto-sync if we are NOT in the middle of editing something
     if (document.body.classList.contains('editing-mode')) return;
 
-    const remoteChurches = await loadChurches();
+    try {
+      const remoteChurches = await loadChurches();
 
-    // Check if anything actually changed
-    if (JSON.stringify(remoteChurches) !== JSON.stringify(state.churches)) {
-      state.churches = remoteChurches;
-      rerenderMarkers();
-      updateCalendarList();
-      renderChurchManager();
-      console.log('Live sync: Data updated from remote.');
+      // Check if anything actually changed
+      if (JSON.stringify(remoteChurches) !== JSON.stringify(state.churches)) {
+        state.churches = remoteChurches;
+        rerenderMarkers();
+        updateCalendarList();
+        renderChurchManager();
+        console.log('Live sync: Data updated from remote.');
+      }
+    } catch {
+       // Silent catch for auto-sync errors (they'll be handled by sync status logic)
     }
   }, 60000); // Check every 60 seconds
 }
 
 async function init() {
   elements.loadingOverlay?.classList.remove('hidden');
-  await retryPendingSync();
-  state.churches = await loadChurches();
-  state.suggestions = await loadSuggestions();
-  state.hostRequests = await loadHostRequests();
-  state.auditLog = await loadAuditLog();
+  try {
+    // Give sync up to 9 seconds to finish. If not, proceed to offline/cached mode.
+    await Promise.race([
+      retryPendingSync(),
+      new Promise((resolve) => setTimeout(resolve, 9000))
+    ]);
 
-  const adminController = attachAdminController({
-    state,
-    map,
-    elements,
-    renderMarkers: () => rerenderMarkers(),
-    renderChurchDetails: (church, onEdit) => renderDetails(church, onEdit)
-  });
-  startEditChurch = adminController.startEditChurch;
-  renderModeration = adminController.renderModeration;
-  renderChurchManager = adminController.renderChurchManager;
+    state.churches = await loadChurches();
+    state.suggestions = await loadSuggestions();
+    state.hostRequests = await loadHostRequests();
+    state.auditLog = await loadAuditLog();
 
-  const finderController = attachFinderController({
-    state,
-    map,
-    elements,
-    renderMarkers: () => rerenderMarkers(),
-    renderChurchDetails: (church) => renderDetails(church, startEditChurch)
-  });
+    const adminController = attachAdminController({
+      state,
+      map,
+      elements,
+      renderMarkers: () => rerenderMarkers(),
+      renderChurchDetails: (church, onEdit) => renderDetails(church, onEdit)
+    });
+    startEditChurch = adminController.startEditChurch;
+    renderModeration = adminController.renderModeration;
+    renderChurchManager = adminController.renderChurchManager;
 
-  elements.languageSelect.value = TRANSLATIONS[state.language] ? state.language : 'en';
-  elements.languageSelect.addEventListener('change', () => {
-    state.language = elements.languageSelect.value;
+    const finderController = attachFinderController({
+      state,
+      map,
+      elements,
+      renderMarkers: () => rerenderMarkers(),
+      renderChurchDetails: (church) => renderDetails(church, startEditChurch)
+    });
+
+    elements.languageSelect.value = TRANSLATIONS[state.language] ? state.language : 'en';
+    elements.languageSelect.addEventListener('change', () => {
+      state.language = elements.languageSelect.value;
+      applyLanguage(state, elements, () => {
+        const church = state.churches.find((item) => item.id === state.selectedChurchId);
+        if (church) renderDetails(church, startEditChurch);
+        renderModeration();
+        renderChurchManager();
+        renderAuditLog();
+      });
+      elements.syncStatus?.dispatchEvent(new Event('sync-refresh'));
+    });
+
+    setupNavigation();
+    setupMapResizeSupport();
+    setupCalendar();
+    setupSyncStatus();
+    setupMapFilters(finderController);
+    setupPublicForms();
+    setupHardeningTools();
+    setupMobileMenu();
+    setupScrollHeader();
+    setupAutoSync(); // Start polling
+
+    elements.toggleChurchSearch?.addEventListener('click', () => {
+      elements.churchSearchWrap?.classList.toggle('hidden');
+      if (!elements.churchSearchWrap?.classList.contains('hidden')) elements.churchManagerSearch?.focus();
+    });
+    showFindView('map');
+    rerenderMarkers();
+    updateCalendarList();
+    renderAuditLog();
     applyLanguage(state, elements, () => {
       const church = state.churches.find((item) => item.id === state.selectedChurchId);
       if (church) renderDetails(church, startEditChurch);
@@ -668,37 +682,12 @@ async function init() {
       renderChurchManager();
       renderAuditLog();
     });
-    elements.syncStatus?.dispatchEvent(new Event('sync-refresh'));
-  });
-
-  setupNavigation();
-  setupMapResizeSupport();
-  setupCalendar();
-  setupSyncStatus();
-  setupMapFilters(finderController);
-  setupPublicForms();
-  setupHardeningTools();
-  setupMobileMenu();
-  setupScrollHeader();
-  setupAutoSync(); // Start polling
-
-  elements.toggleChurchSearch?.addEventListener('click', () => {
-    elements.churchSearchWrap?.classList.toggle('hidden');
-    if (!elements.churchSearchWrap?.classList.contains('hidden')) elements.churchManagerSearch?.focus();
-  });
-  showFindView('map');
-  rerenderMarkers();
-  updateCalendarList();
-  renderAuditLog();
-  applyLanguage(state, elements, () => {
-    const church = state.churches.find((item) => item.id === state.selectedChurchId);
-    if (church) renderDetails(church, startEditChurch);
-    renderModeration();
-    renderChurchManager();
-    renderAuditLog();
-  });
-  resetMapView(map);
-  elements.loadingOverlay?.classList.add('hidden');
+    resetMapView(map);
+  } catch (error) {
+    console.error('Initialization fallback triggered:', error);
+  } finally {
+    elements.loadingOverlay?.classList.add('hidden');
+  }
 }
 
 init();

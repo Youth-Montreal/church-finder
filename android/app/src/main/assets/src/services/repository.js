@@ -4,10 +4,12 @@ import { loadChurches as loadLocalChurches, saveChurches as saveLocalChurches } 
 const SUGGESTIONS_KEY = 'youth-montreal-suggestions';
 const HOST_REQUESTS_KEY = 'youth-montreal-host-requests';
 const AUDIT_LOG_KEY = 'youth-montreal-audit-log';
-const REMOTE_TIMEOUT_MS = 8000;
 const PENDING_SYNC_KEY = 'youth-montreal-pending-sync';
 const SYNC_URL_KEY = 'youth-montreal-sheets-url';
 const syncListeners = new Set();
+const REMOTE_TIMEOUT_MS = 8000;
+
+let lastSyncError = null;
 
 function getRemoteUrl() {
   if (SHEETS_WEB_APP_URL && SHEETS_WEB_APP_URL.trim()) return SHEETS_WEB_APP_URL.trim();
@@ -62,6 +64,7 @@ function markPending(resource, payload, errorMessage = '') {
     errorMessage
   };
   writePendingSync(pending);
+  lastSyncError = errorMessage;
   emitSyncState();
 }
 
@@ -74,29 +77,40 @@ function clearPending(resource) {
 }
 
 async function remoteGet(resource) {
-  const url = `${SHEETS_WEB_APP_URL}?resource=${encodeURIComponent(resource)}`;
+  const url = `${getRemoteUrl()}?resource=${encodeURIComponent(resource)}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REMOTE_TIMEOUT_MS);
-  const response = await fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
-  if (!response.ok) throw new Error(`Remote GET failed: ${resource}`);
-  const data = await response.json();
-  if (data?.error) throw new Error(`Remote GET error: ${data.error}`);
-  return data;
+  try {
+    const response = await fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+    if (!response.ok) throw new Error(`Remote GET failed: ${resource}`);
+    const data = await response.json();
+    if (data?.error) throw new Error(`Remote GET error: ${data.error}`);
+    lastSyncError = null;
+    return data;
+  } catch (err) {
+    lastSyncError = err.message || String(err);
+    throw err;
+  }
 }
 
 async function remotePost(resource, payload) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REMOTE_TIMEOUT_MS);
-  const response = await fetch(SHEETS_WEB_APP_URL, {
-    method: 'POST',
-    // Use a simple request body to avoid CORS preflight issues with Apps Script web apps.
-    body: JSON.stringify({ resource, payload }),
-    signal: controller.signal
-  }).finally(() => clearTimeout(timer));
-  if (!response.ok) throw new Error(`Remote POST failed: ${resource}`);
-  const data = await response.json();
-  if (data?.error) throw new Error(`Remote POST error: ${data.error}`);
-  return data;
+  try {
+    const response = await fetch(getRemoteUrl(), {
+      method: 'POST',
+      body: JSON.stringify({ resource, payload }),
+      signal: controller.signal
+    }).finally(() => clearTimeout(timer));
+    if (!response.ok) throw new Error(`Remote POST failed: ${resource}`);
+    const data = await response.json();
+    if (data?.error) throw new Error(`Remote POST error: ${data.error}`);
+    lastSyncError = null;
+    return data;
+  } catch (err) {
+    lastSyncError = err.message || String(err);
+    throw err;
+  }
 }
 
 function readLocalList(key) {
@@ -176,12 +190,13 @@ export async function retryPendingSync() {
   if (!hasRemote()) return getSyncState();
   const pending = readPendingSync();
   const entries = Object.entries(pending);
+  let success = true;
   for (const [resource, item] of entries) {
     try {
       await remotePost(resource, item?.payload ?? []);
       clearPending(resource);
     } catch {
-      // Keep pending for future retries
+      success = false;
     }
   }
   emitSyncState();
@@ -195,7 +210,8 @@ export function getSyncState() {
     hasRemote: hasRemote(),
     pendingResources,
     pendingCount: pendingResources.length,
-    pending
+    pending,
+    lastSyncError
   };
 }
 

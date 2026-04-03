@@ -191,8 +191,7 @@ export const TRANSLATIONS = {
     nextPage: 'Next',
     cancel: 'Cancel',
     toggleFilters: 'Filters',
-    today: 'Today'
-    ,
+    today: 'Today',
     remoteSaveFailed: 'Saved locally, but cloud sync failed. Check Sheets backend URL/network.',
     syncLocalOnly: 'Local only',
     syncLocalOnlyHint: 'Cloud backend not configured. Data is stored locally on this device.',
@@ -203,7 +202,9 @@ export const TRANSLATIONS = {
     syncEndpoint: 'Sync endpoint',
     enterSyncUrlPrompt: 'Paste your deployed Google Apps Script URL (leave blank to disable cloud sync):',
     otherLanguage: 'Others',
-    loadingData: 'Loading data…'
+    loadingData: 'Loading data…',
+    youAreOffline: "You're offline",
+    youAreOfflineHint: 'Sync failed. You can still browse, but creating or modifying data requires a connection.'
   },
   'fr-CA': {
     language: 'Langue',
@@ -368,7 +369,7 @@ export const TRANSLATIONS = {
     statusContacting: 'En contact',
     addChurch: 'Ajouter une église',
     addEvent: 'Ajouter un événement',
-    addChurchFirst: 'Ajoutez ou sélectionnez d’abord une église.',
+    addChurchFirst: 'Add or select a church first.',
     editingFocusHint: 'Pendant la modification, les autres sections sont atténuées pour garder le focus sur cette église.',
     editMapTitle: 'Carte',
     editMapHint: 'Utilisez la carte pour confirmer le point et remplir automatiquement les détails de l’adresse.',
@@ -406,7 +407,9 @@ export const TRANSLATIONS = {
     syncEndpoint: 'Endpoint de sync',
     enterSyncUrlPrompt: 'Collez l’URL déployée de votre Google Apps Script (laissez vide pour désactiver la sync cloud) :',
     otherLanguage: 'Autres',
-    loadingData: 'Chargement des données…'
+    loadingData: 'Chargement des données…',
+    youAreOffline: "Vous êtes hors ligne",
+    youAreOfflineHint: 'La synchronisation a échoué. Vous pouvez toujours naviguer, mais la création ou modification de données nécessite une connexion.'
   }
 };
 
