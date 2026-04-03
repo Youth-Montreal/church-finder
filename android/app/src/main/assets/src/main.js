@@ -53,6 +53,8 @@ const elements = {
   hostRequestCancel: document.querySelector('#host-request-cancel'),
   toggleHostRequest: document.querySelector('#toggle-host-request'),
   churchManagerSearch: document.querySelector('#church-manager-search'),
+  churchSearchWrap: document.querySelector('#church-search-wrap'),
+  toggleChurchSearch: document.querySelector('#toggle-church-search'),
   churchManagerList: document.querySelector('#church-manager-list'),
   eventManagerSearch: document.querySelector('#event-manager-search'),
   eventManagerList: document.querySelector('#event-manager-list'),
@@ -90,7 +92,8 @@ const elements = {
   calPrevDay: document.querySelector('#cal-prev-day'),
   calToday: document.querySelector('#cal-today'),
   calNextDay: document.querySelector('#cal-next-day'),
-  syncStatus: document.querySelector('#sync-status')
+  syncStatus: document.querySelector('#sync-status'),
+  loadingOverlay: document.querySelector('#app-loading-overlay')
 };
 
 const state = {
@@ -145,7 +148,13 @@ function updateCalendarList() {
     elements,
     onSuggestEventUpdate: openEventSuggestion,
     onEditEvent: editCalendarEvent,
-    onDeleteEvent: deleteCalendarEvent
+    onDeleteEvent: deleteCalendarEvent,
+    onOpenDay: (day) => {
+      state.calendarAnchorDate = new Date(day);
+      elements.calendarMode = { value: 'daily' };
+      elements.calendarModeButtons.forEach((item) => item.classList.toggle('active', item.dataset.calendarMode === 'daily'));
+      updateCalendarList();
+    }
   });
 }
 
@@ -271,6 +280,7 @@ function setupCalendar() {
 
   elements.calendarApply.addEventListener('click', () => {
     state.calendarAnchorDate = elements.calendarFrom.value ? new Date(elements.calendarFrom.value) : new Date();
+    updateCalendarNavLabel();
     updateCalendarList();
   });
 
@@ -284,28 +294,87 @@ function setupCalendar() {
       elements.calendarMode = { value: button.dataset.calendarMode };
 
       const isDaily = button.dataset.calendarMode === 'daily';
-      elements.calendarDayNav.classList.toggle('hidden', !isDaily);
+      elements.calendarDayNav.classList.remove('hidden');
+      updateCalendarNavLabel();
 
       updateCalendarList();
     });
   });
 
-  // Daily Nav Logic
+  const getMode = () => elements.calendarMode?.value || 'daily';
+  const stepAnchor = (direction) => {
+    const mode = getMode();
+    if (mode === 'daily') state.calendarAnchorDate.setDate(state.calendarAnchorDate.getDate() + direction);
+    if (mode === 'weekly') state.calendarAnchorDate.setDate(state.calendarAnchorDate.getDate() + (7 * direction));
+    if (mode === 'monthly') state.calendarAnchorDate.setMonth(state.calendarAnchorDate.getMonth() + direction);
+    updateCalendarNavLabel();
+  };
+
+  function updateCalendarNavLabel() {
+    const labelNode = document.querySelector('#cal-current-label');
+    if (!labelNode) return;
+    const mode = getMode();
+    if (mode === 'daily') labelNode.textContent = state.calendarAnchorDate.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' });
+    if (mode === 'weekly') labelNode.textContent = state.calendarAnchorDate.toLocaleDateString('en-CA', { month: 'short', year: 'numeric' });
+    if (mode === 'monthly') labelNode.textContent = state.calendarAnchorDate.toLocaleDateString('en-CA', { month: 'long', year: 'numeric' });
+  }
+
   elements.calPrevDay.addEventListener('click', () => {
-    state.calendarAnchorDate.setDate(state.calendarAnchorDate.getDate() - 1);
+    stepAnchor(-1);
     updateCalendarList();
   });
   elements.calNextDay.addEventListener('click', () => {
-    state.calendarAnchorDate.setDate(state.calendarAnchorDate.getDate() + 1);
+    stepAnchor(1);
     updateCalendarList();
   });
   elements.calToday.addEventListener('click', () => {
     state.calendarAnchorDate = new Date();
+    updateCalendarNavLabel();
     updateCalendarList();
   });
 
   elements.calendarMode = { value: 'daily' };
   elements.calendarDayNav.classList.remove('hidden');
+  updateCalendarNavLabel();
+}
+
+function setupSyncStatus() {
+  if (!elements.syncStatus) return;
+
+  const updateSyncStatus = (syncState = getSyncState()) => {
+    const { hasRemote, pendingCount } = syncState;
+    const activeUrl = getConfiguredSyncUrl();
+    elements.syncStatus.classList.remove('sync-local', 'sync-pending', 'sync-ok');
+    if (!hasRemote) {
+      elements.syncStatus.classList.add('sync-local');
+      elements.syncStatus.textContent = t(state, 'syncLocalOnly');
+      elements.syncStatus.title = t(state, 'syncLocalOnlyHint');
+      return;
+    }
+    if (pendingCount > 0) {
+      elements.syncStatus.classList.add('sync-pending');
+      elements.syncStatus.textContent = `${t(state, 'syncPending')} (${pendingCount})`;
+      elements.syncStatus.title = `${t(state, 'syncPendingHint')}${activeUrl ? `\n${t(state, 'syncEndpoint')}: ${activeUrl}` : ''}`;
+      return;
+    }
+    elements.syncStatus.classList.add('sync-ok');
+    elements.syncStatus.textContent = t(state, 'syncUpToDate');
+    elements.syncStatus.title = `${t(state, 'syncUpToDateHint')}${activeUrl ? `\n${t(state, 'syncEndpoint')}: ${activeUrl}` : ''}`;
+  };
+
+  elements.syncStatus.addEventListener('click', async () => {
+    const syncState = getSyncState();
+    if (!syncState.hasRemote) {
+      const url = prompt(t(state, 'enterSyncUrlPrompt'), getConfiguredSyncUrl() || '');
+      if (url === null) return;
+      setConfiguredSyncUrl(url);
+      if (!String(url || '').trim()) return;
+    }
+    await retryPendingSync();
+  });
+  elements.syncStatus.addEventListener('sync-refresh', () => updateSyncStatus());
+  subscribeSyncState(updateSyncStatus);
+  window.addEventListener('online', () => retryPendingSync());
 }
 
 function setupSyncStatus() {
@@ -563,6 +632,7 @@ function setupAutoSync() {
 }
 
 async function init() {
+  elements.loadingOverlay?.classList.remove('hidden');
   await retryPendingSync();
   state.churches = await loadChurches();
   state.suggestions = await loadSuggestions();
@@ -611,6 +681,11 @@ async function init() {
   setupMobileMenu();
   setupScrollHeader();
   setupAutoSync(); // Start polling
+
+  elements.toggleChurchSearch?.addEventListener('click', () => {
+    elements.churchSearchWrap?.classList.toggle('hidden');
+    if (!elements.churchSearchWrap?.classList.contains('hidden')) elements.churchManagerSearch?.focus();
+  });
   showFindView('map');
   rerenderMarkers();
   updateCalendarList();
@@ -623,6 +698,7 @@ async function init() {
     renderAuditLog();
   });
   resetMapView(map);
+  elements.loadingOverlay?.classList.add('hidden');
 }
 
 init();

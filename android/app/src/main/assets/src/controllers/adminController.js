@@ -2,7 +2,7 @@ import { geocodeAddress, reverseGeocode, searchMontrealAddresses } from '../serv
 import { appendAuditLog, saveChurches, updateHostRequestStatus, updateSuggestionStatus } from '../services/repository.js';
 import { t } from '../i18n.js';
 import { ADM_PASSCODE } from '../config.js';
-import { shortenAddress } from '../utils/address.js';
+import { normalizeAddress, shortenAddress } from '../utils/address.js';
 
 const todayDate = () => new Date().toISOString().slice(0, 10);
 const hostCode = () => `H-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
@@ -142,7 +142,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
   const applyAddressMatch = (match) => {
     if (!match) return;
-    elements.churchForm.elements.address.value = match.fullAddress;
+    elements.churchForm.elements.address.value = normalizeAddress(match.fullAddress);
     elements.churchForm.elements.lat.value = Number(match.lat).toFixed(6);
     elements.churchForm.elements.lng.value = Number(match.lng).toFixed(6);
     elements.churchForm.elements.googleMapsUrl.value = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(match.fullAddress)}`;
@@ -250,6 +250,8 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
   const renderModeration = () => {
     const moderationMode = elements.workspaceModeration.dataset.mode || 'suggestions';
+    const moderationTitle = elements.workspaceModeration.querySelector('h3');
+    if (moderationTitle) moderationTitle.textContent = t(state, moderationMode === 'hostRequests' ? 'reviewHostRequestsTitle' : 'reviewSuggestionsTitle');
     const suggestions = getRelevantSuggestions(state);
     const hostRequests = state.isAdminMode ? state.hostRequests : [];
 
@@ -675,7 +677,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       id: churchId,
       hostPasscode: existing?.hostPasscode || hostCode(),
       name: state.editorMode === 'event' ? existing?.name || '' : formData.get('name').trim(),
-      address: state.editorMode === 'event' ? existing?.address || '' : formData.get('address').trim(),
+      address: state.editorMode === 'event' ? existing?.address || '' : normalizeAddress(formData.get('address').trim()),
       googleMapsUrl: state.editorMode === 'event' ? existing?.googleMapsUrl || '' : formData.get('googleMapsUrl').trim(),
       googlePlaceId: state.editorMode === 'event' ? existing?.googlePlaceId || '' : formData.get('googlePlaceId').trim(),
       lat: state.editorMode === 'event' ? Number(existing?.lat) : Number(formData.get('lat')),
