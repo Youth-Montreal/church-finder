@@ -1,18 +1,18 @@
 import { STORAGE_KEY } from '../config.js';
-import { defaultChurches } from '../data/defaultChurches.js';
+import { defaultHosts } from '../data/defaultHosts.js';
 
-export function loadChurches() {
+export function loadHosts() {
   const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved) return defaultChurches;
+  if (!saved) return defaultHosts;
 
   try {
-    return JSON.parse(saved).map((church) => ({
-      ...church,
-      hostPasscode: church.hostPasscode || '',
-      googleMapsUrl: church.googleMapsUrl || '',
-      googlePlaceId: church.googlePlaceId || '',
-      languages: church.languages || [],
-      events: (church.events || []).map((event) => ({
+    return JSON.parse(saved).map((host) => ({
+      ...host,
+      hostPasscode: host.hostPasscode || '',
+      googleMapsUrl: host.googleMapsUrl || '',
+      googlePlaceId: host.googlePlaceId || '',
+      languages: host.languages || [],
+      events: (host.events || []).map((event) => ({
         ...event,
         title: event.title || event.type || '',
         ageGroup: event.ageGroup || 'all',
@@ -21,10 +21,10 @@ export function loadChurches() {
       }))
     }));
   } catch {
-    return defaultChurches;
+    return defaultHosts;
   }
 }
 
-export function saveChurches(churches) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(churches));
+export function saveHosts(hosts) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(hosts));
 }

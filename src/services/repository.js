@@ -1,8 +1,8 @@
 import { SHEETS_WEB_APP_URL } from '../config.js';
-import { loadChurches as loadLocalChurches, saveChurches as saveLocalChurches } from './storage.js';
+import { loadHosts as loadLocalHosts, saveHosts as saveLocalHosts } from './storage.js';
 
-const SUGGESTIONS_KEY = 'youth-montreal-suggestions';
-const HOST_REQUESTS_KEY = 'youth-montreal-host-requests';
+const REPORTS_KEY = 'youth-montreal-reports';
+const TITLE_REQUESTS_KEY = 'youth-montreal-title-requests';
 const AUDIT_LOG_KEY = 'youth-montreal-audit-log';
 const PENDING_SYNC_KEY = 'youth-montreal-pending-sync';
 const SYNC_URL_KEY = 'youth-montreal-sheets-url';
@@ -160,23 +160,23 @@ async function saveList(resource, localKey, list) {
   }
 }
 
-export async function loadChurches() {
+export async function loadHosts() {
   if (canAttemptRemote()) {
     try {
-      const data = await remoteGet('churches');
-      if (Array.isArray(data?.churches)) {
-        saveLocalChurches(data.churches);
-        return data.churches;
+      const data = await remoteGet('hosts');
+      if (Array.isArray(data?.hosts)) {
+        saveLocalHosts(data.hosts);
+        return data.hosts;
       }
     } catch {
       // fallback to local cache
     }
   }
-  return loadLocalChurches();
+  return loadLocalHosts();
 }
 
-export async function saveChurches(churches) {
-  saveLocalChurches(churches);
+export async function saveHosts(hosts) {
+  saveLocalHosts(hosts);
   if (canAttemptRemote()) {
     try {
       await remotePost('churches', churches);
@@ -222,22 +222,22 @@ export function subscribeSyncState(listener) {
   return () => syncListeners.delete(listener);
 }
 
-export async function loadSuggestions() {
-  return loadList('suggestions', SUGGESTIONS_KEY);
+export async function loadReports() {
+  return loadList('reports', REPORTS_KEY);
 }
 
-export async function loadHostRequests() {
-  return loadList('hostRequests', HOST_REQUESTS_KEY);
+export async function loadTitleRequests() {
+  return loadList('titleRequests', TITLE_REQUESTS_KEY);
 }
 
-export async function submitSuggestion(suggestion) {
-  const list = await loadSuggestions();
-  list.push(normalizeEntry(suggestion));
-  await saveList('suggestions', SUGGESTIONS_KEY, list);
+export async function submitReport(report) {
+  const list = await loadReports();
+  list.push(normalizeEntry(report));
+  await saveList('reports', REPORTS_KEY, list);
 }
 
-export async function submitHostRequest(request) {
-  const list = await loadHostRequests();
+export async function submitTitleRequest(titleRequest) {
+  const list = await loadTitleRequests();
   list.push(normalizeEntry(request));
   await saveList('hostRequests', HOST_REQUESTS_KEY, list);
 }

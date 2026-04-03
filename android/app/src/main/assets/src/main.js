@@ -1,7 +1,7 @@
 import { LANGUAGE_KEY, STORAGE_KEY } from './config.js';
-import { appendAuditLog, getConfiguredSyncUrl, getSyncState, loadAuditLog, loadChurches, loadHostRequests, loadSuggestions, retryPendingSync, saveChurches, setConfiguredSyncUrl, subscribeSyncState, submitHostRequest, submitSuggestion } from './services/repository.js';
+import { appendAuditLog, getConfiguredSyncUrl, getSyncState, loadAuditLog, loadHosts, loadTitleRequests, loadReports, retryPendingSync, saveHosts, setConfiguredSyncUrl, subscribeSyncState, submitTitleRequest, submitReport } from './services/repository.js';
 import { createMap, renderMarkers, resetMapView } from './ui/mapView.js';
-import { renderChurchDetails } from './ui/detailsView.js';
+import { renderHostDetails } from './ui/detailsView.js';
 import { attachAdminController } from './controllers/adminController.js';
 import { attachFinderController } from './controllers/finderController.js';
 import { renderCalendarList } from './ui/calendarView.js';
@@ -14,13 +14,13 @@ const elements = {
   adminPanel: document.querySelector('#admin-panel'),
   adminTitle: document.querySelector('#admin-title'),
   adminStatus: document.querySelector('#admin-status'),
-  suggestionsQueue: document.querySelector('#suggestions-queue'),
-  hostQueue: document.querySelector('#host-queue'),
+  reportsQueue: document.querySelector('#reports-queue'),
+  titleQueue: document.querySelector('#title-queue'),
   toggleAdmin: document.querySelector('#toggle-admin'),
   toggleHost: document.querySelector('#toggle-host'),
-  addChurchButton: document.querySelector('#add-church'),
+  addHostButton: document.querySelector('#add-host'),
   workspaceAddEventButton: document.querySelector('#workspace-add-event'),
-  churchForm: document.querySelector('#church-form'),
+  hostForm: document.querySelector('#host-form'),
   eventsList: document.querySelector('#events-list'),
   eventTemplate: document.querySelector('#event-template'),
   addEventButton: document.querySelector('#add-event'),
@@ -47,15 +47,15 @@ const elements = {
   contactForm: document.querySelector('#contact-form'),
   contactFormPanel: document.querySelector('#contact-form-panel'),
   contactStatus: document.querySelector('#contact-status'),
-  hostRequestForm: document.querySelector('#host-request-form'),
-  hostRequestStatus: document.querySelector('#host-request-status'),
-  hostRequestPanel: document.querySelector('#host-request-panel'),
-  hostRequestCancel: document.querySelector('#host-request-cancel'),
-  toggleHostRequest: document.querySelector('#toggle-host-request'),
-  churchManagerSearch: document.querySelector('#church-manager-search'),
-  churchSearchWrap: document.querySelector('#church-search-wrap'),
-  toggleChurchSearch: document.querySelector('#toggle-church-search'),
-  churchManagerList: document.querySelector('#church-manager-list'),
+  titleRequestForm: document.querySelector('#title-request-form'),
+  titleRequestStatus: document.querySelector('#title-request-status'),
+  titleRequestPanel: document.querySelector('#title-request-panel'),
+  titleRequestCancel: document.querySelector('#title-request-cancel'),
+  toggleTitleRequest: document.querySelector('#toggle-title-request'),
+  hostManagerSearch: document.querySelector('#host-manager-search'),
+  hostSearchWrap: document.querySelector('#host-search-wrap'),
+  toggleHostSearch: document.querySelector('#toggle-host-search'),
+  hostManagerList: document.querySelector('#host-manager-list'),
   eventManagerSearch: document.querySelector('#event-manager-search'),
   eventManagerList: document.querySelector('#event-manager-list'),
   workspaceEventModeButtons: Array.from(document.querySelectorAll('[data-workspace-event-mode]')),
@@ -93,27 +93,26 @@ const elements = {
   calToday: document.querySelector('#cal-today'),
   calNextDay: document.querySelector('#cal-next-day'),
   syncStatus: document.querySelector('#sync-status'),
-  loadingOverlay: document.querySelector('#app-loading-overlay'),
-  offlineWarning: document.querySelector('#offline-warning')
+  loadingOverlay: document.querySelector('#app-loading-overlay')
 };
 
 const state = {
-  churches: [],
-  suggestions: [],
-  hostRequests: [],
+  hosts: [],
+  reports: [],
+  titleRequests: [],
   auditLog: [],
   markers: new Map(),
   filteredIds: null,
   mapFilteredIds: null,
   language: localStorage.getItem(LANGUAGE_KEY) || 'en',
-  selectedChurchId: null,
-  editorMode: 'church',
+  selectedHostId: null,
+  editorMode: 'host',
   editingEventIndex: null,
   lastFinderPoint: null,
-  onMapChurchSelect: null,
+  onMapHostSelect: null,
   isAdminMode: false,
   isHostMode: false,
-  hostChurchId: null,
+  hostHostId: null,
   calendarAnchorDate: new Date()
 };
 
@@ -201,10 +200,10 @@ function openEventSuggestion(church, eventData) {
   }
 }
 
-const renderDetails = (church, onEdit) => {
-  renderChurchDetails({
+const renderDetails = (host, onEdit) => {
+  renderHostDetails({
     state,
-    church,
+    host,
     detailsElement: elements.details,
     emptyStateElement: elements.emptyState,
     onEdit,
@@ -213,24 +212,24 @@ const renderDetails = (church, onEdit) => {
   });
 };
 
-let startEditChurch = () => {};
+let startEditHost = () => {};
 let renderModeration = () => {};
-let renderChurchManager = () => {};
+let renderHostManager = () => {};
 
 async function deleteCalendarEvent(row) {
   if (!confirm(t(state, 'deleteEventConfirm'))) return;
-  const church = state.churches.find((item) => item.id === row.churchId);
-  if (!church) return;
-  const index = Number.isInteger(row.eventIndex) ? row.eventIndex : (church.events || []).findIndex((event) => event.date === row.date && event.time === row.time && event.type === row.type);
+  const host = state.hosts.find((item) => item.id === row.hostId);
+  if (!host) return;
+  const index = Number.isInteger(row.eventIndex) ? row.eventIndex : (host.events || []).findIndex((event) => event.date === row.date && event.time === row.time && event.type === row.type);
   if (index < 0) return;
-  church.events.splice(index, 1);
+  host.events.splice(index, 1);
   try {
-    await saveChurches(state.churches);
+    await saveHosts(state.hosts);
   } catch {
     elements.workspaceStatus.textContent = t(state, 'remoteSaveFailed');
     return;
   }
-  state.auditLog = await appendAuditLog({ action: 'event_deleted', label: `${church.name}:${row.type}` });
+  state.auditLog = await appendAuditLog({ action: 'event_deleted', label: `${host.name}:${row.type}` });
   rerenderMarkers();
   renderAuditLog();
   updateCalendarList();
@@ -343,17 +342,9 @@ function setupSyncStatus() {
   if (!elements.syncStatus) return;
 
   const updateSyncStatus = (syncState = getSyncState()) => {
-    const { hasRemote, pendingCount, lastSyncError } = syncState;
+    const { hasRemote, pendingCount } = syncState;
     const activeUrl = getConfiguredSyncUrl();
     elements.syncStatus.classList.remove('sync-local', 'sync-pending', 'sync-ok');
-
-    // Offline mode management
-    const isOffline = lastSyncError && hasRemote;
-    document.body.classList.toggle('offline-mode', !!isOffline);
-    if (elements.offlineWarning) {
-       elements.offlineWarning.classList.toggle('hidden', !isOffline);
-    }
-
     if (!hasRemote) {
       elements.syncStatus.classList.add('sync-local');
       elements.syncStatus.textContent = t(state, 'syncLocalOnly');
@@ -381,11 +372,45 @@ function setupSyncStatus() {
     }
     await retryPendingSync();
   });
+  elements.syncStatus.addEventListener('sync-refresh', () => updateSyncStatus());
+  subscribeSyncState(updateSyncStatus);
+  window.addEventListener('online', () => retryPendingSync());
+}
 
-  elements.offlineWarning?.querySelector('.close-warning')?.addEventListener('click', () => {
-    elements.offlineWarning.classList.add('hidden');
+function setupSyncStatus() {
+  if (!elements.syncStatus) return;
+
+  const updateSyncStatus = (syncState = getSyncState()) => {
+    const { hasRemote, pendingCount } = syncState;
+    const activeUrl = getConfiguredSyncUrl();
+    elements.syncStatus.classList.remove('sync-local', 'sync-pending', 'sync-ok');
+    if (!hasRemote) {
+      elements.syncStatus.classList.add('sync-local');
+      elements.syncStatus.textContent = t(state, 'syncLocalOnly');
+      elements.syncStatus.title = t(state, 'syncLocalOnlyHint');
+      return;
+    }
+    if (pendingCount > 0) {
+      elements.syncStatus.classList.add('sync-pending');
+      elements.syncStatus.textContent = `${t(state, 'syncPending')} (${pendingCount})`;
+      elements.syncStatus.title = `${t(state, 'syncPendingHint')}${activeUrl ? `\n${t(state, 'syncEndpoint')}: ${activeUrl}` : ''}`;
+      return;
+    }
+    elements.syncStatus.classList.add('sync-ok');
+    elements.syncStatus.textContent = t(state, 'syncUpToDate');
+    elements.syncStatus.title = `${t(state, 'syncUpToDateHint')}${activeUrl ? `\n${t(state, 'syncEndpoint')}: ${activeUrl}` : ''}`;
+  };
+
+  elements.syncStatus.addEventListener('click', async () => {
+    const syncState = getSyncState();
+    if (!syncState.hasRemote) {
+      const url = prompt(t(state, 'enterSyncUrlPrompt'), getConfiguredSyncUrl() || '');
+      if (url === null) return;
+      setConfiguredSyncUrl(url);
+      if (!String(url || '').trim()) return;
+    }
+    await retryPendingSync();
   });
-
   elements.syncStatus.addEventListener('sync-refresh', () => updateSyncStatus());
   subscribeSyncState(updateSyncStatus);
   window.addEventListener('online', () => retryPendingSync());
@@ -411,8 +436,8 @@ function setupMapFilters(finderController) {
   };
 
   const applyMapFilters = async () => {
-    const matches = state.churches.filter(matchesMapFilters);
-    state.mapFilteredIds = new Set(matches.map((church) => church.id));
+    const matches = state.hosts.filter(matchesMapFilters);
+    state.mapFilteredIds = new Set(matches.map((host) => host.id));
     const address = elements.finderAddress.value.trim();
     if (address) {
       await finderController.applyLocationFilter({ shouldGeocode: !state.lastFinderPoint || state.lastFinderPoint.query !== address });
@@ -492,9 +517,9 @@ function setupHardeningTools() {
   elements.exportDataButton?.addEventListener('click', async () => {
     const payload = {
       exportedAt: new Date().toISOString(),
-      churches: state.churches,
-      suggestions: state.suggestions,
-      hostRequests: state.hostRequests,
+      hosts: state.hosts,
+      reports: state.reports,
+      titleRequests: state.titleRequests,
       auditLog: state.auditLog
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -593,19 +618,15 @@ function setupAutoSync() {
     // Only auto-sync if we are NOT in the middle of editing something
     if (document.body.classList.contains('editing-mode')) return;
 
-    try {
-      const remoteChurches = await loadChurches();
+    const remoteHosts = await loadHosts();
 
-      // Check if anything actually changed
-      if (JSON.stringify(remoteChurches) !== JSON.stringify(state.churches)) {
-        state.churches = remoteChurches;
-        rerenderMarkers();
-        updateCalendarList();
-        renderChurchManager();
-        console.log('Live sync: Data updated from remote.');
-      }
-    } catch {
-       // Silent catch for auto-sync errors (they'll be handled by sync status logic)
+    // Check if anything actually changed
+    if (JSON.stringify(remoteHosts) !== JSON.stringify(state.hosts)) {
+      state.hosts = remoteHosts;
+      rerenderMarkers();
+      updateCalendarList();
+      renderHostManager();
+      console.log('Live sync: Data updated from remote.');
     }
   }, 60000); // Check every 60 seconds
 }
@@ -613,21 +634,19 @@ function setupAutoSync() {
 async function init() {
   elements.loadingOverlay?.classList.remove('hidden');
   try {
-    // Give sync up to 9 seconds to finish. If not, proceed to offline/cached mode.
     await Promise.race([
       retryPendingSync(),
       new Promise((resolve) => setTimeout(resolve, 9000))
     ]);
-
-    const [churches, suggestions, hostRequests, auditLog] = await Promise.all([
-      loadChurches(),
-      loadSuggestions(),
-      loadHostRequests(),
+    const [hosts, reports, titleRequests, auditLog] = await Promise.all([
+      loadHosts(),
+      loadReports(),
+      loadTitleRequests(),
       loadAuditLog()
     ]);
-    state.churches = churches;
-    state.suggestions = suggestions;
-    state.hostRequests = hostRequests;
+    state.hosts = hosts;
+    state.reports = reports;
+    state.titleRequests = titleRequests;
     state.auditLog = auditLog;
 
     const adminController = attachAdminController({
@@ -635,28 +654,28 @@ async function init() {
       map,
       elements,
       renderMarkers: () => rerenderMarkers(),
-      renderChurchDetails: (church, onEdit) => renderDetails(church, onEdit)
+      renderHostDetails: (host, onEdit) => renderDetails(host, onEdit)
     });
-    startEditChurch = adminController.startEditChurch;
+    startEditHost = adminController.startEditHost;
     renderModeration = adminController.renderModeration;
-    renderChurchManager = adminController.renderChurchManager;
+    renderHostManager = adminController.renderHostManager;
 
     const finderController = attachFinderController({
       state,
       map,
       elements,
       renderMarkers: () => rerenderMarkers(),
-      renderChurchDetails: (church) => renderDetails(church, startEditChurch)
+      renderHostDetails: (host) => renderDetails(host, startEditHost)
     });
 
     elements.languageSelect.value = TRANSLATIONS[state.language] ? state.language : 'en';
     elements.languageSelect.addEventListener('change', () => {
       state.language = elements.languageSelect.value;
       applyLanguage(state, elements, () => {
-        const church = state.churches.find((item) => item.id === state.selectedChurchId);
-        if (church) renderDetails(church, startEditChurch);
+        const host = state.hosts.find((item) => item.id === state.selectedHostId);
+        if (host) renderDetails(host, startEditHost);
         renderModeration();
-        renderChurchManager();
+        renderHostManager();
         renderAuditLog();
       });
       elements.syncStatus?.dispatchEvent(new Event('sync-refresh'));
@@ -673,19 +692,19 @@ async function init() {
     setupScrollHeader();
     setupAutoSync(); // Start polling
 
-    elements.toggleChurchSearch?.addEventListener('click', () => {
-      elements.churchSearchWrap?.classList.toggle('hidden');
-      if (!elements.churchSearchWrap?.classList.contains('hidden')) elements.churchManagerSearch?.focus();
+    elements.toggleHostSearch?.addEventListener('click', () => {
+      elements.hostSearchWrap?.classList.toggle('hidden');
+      if (!elements.hostSearchWrap?.classList.contains('hidden')) elements.hostManagerSearch?.focus();
     });
     showFindView('map');
     rerenderMarkers();
     updateCalendarList();
     renderAuditLog();
     applyLanguage(state, elements, () => {
-      const church = state.churches.find((item) => item.id === state.selectedChurchId);
-      if (church) renderDetails(church, startEditChurch);
+      const host = state.hosts.find((item) => item.id === state.selectedHostId);
+      if (host) renderDetails(host, startEditHost);
       renderModeration();
-      renderChurchManager();
+      renderHostManager();
       renderAuditLog();
     });
     resetMapView(map);

@@ -982,7 +982,7 @@ body.editing-mode .workspace-toolbar > * {
   user-select: none;
 }
 
-body.editing-mode #my-church {
+body.editing-mode #my-host {
   box-shadow: 0 24px 70px rgba(17, 32, 51, 0.22);
 }
 

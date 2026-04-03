@@ -2,7 +2,7 @@ import { geocodeAddress, searchMontrealAddresses } from '../services/geocoding.j
 import { haversineKm } from '../utils/distance.js';
 import { t } from '../i18n.js';
 
-export function attachFinderController({ state, map, elements, renderMarkers, renderChurchDetails }) {
+export function attachFinderController({ state, map, elements, renderMarkers, renderHostDetails }) {
   const addressList = document.querySelector('#montreal-addresses');
 
   const applyLocationFilter = async ({ shouldGeocode = true } = {}) => {
@@ -50,7 +50,7 @@ export function attachFinderController({ state, map, elements, renderMarkers, re
     const selected = visibleMatches[0] || matches[0];
     if (selected) {
       state.selectedChurchId = selected.id;
-      renderChurchDetails(selected);
+      renderHostDetails(selected);
     }
 
     document.querySelector('#find-church')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
