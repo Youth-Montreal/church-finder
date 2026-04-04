@@ -504,14 +504,14 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     }
 
     if (button.dataset.action === 'delete' && state.isAdminMode) {
-      if (!confirm(`${t(state, 'deleteChurchConfirm')} ${hostId}?`)) return;
+      if (!confirm(`${t(state, 'deleteHostConfirm')} ${hostId}?`)) return;
       state.hosts = state.hosts.filter((item) => item.id !== hostId);
       if (!await saveHostsWithFeedback()) return;
       state.auditLog = await appendAuditLog({ action: 'host_deleted', label: hostId });
       renderMarkers();
       renderHostManager();
       renderEventManager();
-      elements.adminStatus.textContent = t(state, 'churchDeleted');
+      elements.adminStatus.textContent = t(state, 'hostDeleted');
     }
   });
 
@@ -593,8 +593,8 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
   elements.addEventButton.addEventListener('click', () => addEventRow(elements.eventsList, elements.eventTemplate, state));
   elements.workspaceAddEventButton.addEventListener('click', () => {
-    const preferredChurchId = state.hostHostId || state.selectedHostId || null;
-    startEditHost(preferredChurchId, { mode: 'new-event' });
+    const preferredHostId = state.hostHostId || state.selectedHostId || null;
+    startEditHost(preferredHostId, { mode: 'new-event' });
   });
   elements.cancelEditButton.addEventListener('click', resetForm);
 
@@ -619,14 +619,14 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       return;
     }
 
-    if (!confirm(`${t(state, 'deleteChurchConfirm')} ${host.name}?`)) return;
+    if (!confirm(`${t(state, 'deleteHostConfirm')} ${host.name}?`)) return;
     state.hosts = state.hosts.filter((item) => item.id !== hostId);
     if (!await saveHostsWithFeedback()) return;
     state.auditLog = await appendAuditLog({ action: 'host_deleted', label: host.name });
     renderMarkers();
     renderHostManager();
     renderEventManager();
-    elements.workspaceStatus.textContent = t(state, 'churchDeleted');
+    elements.workspaceStatus.textContent = t(state, 'hostDeleted');
     resetForm();
   });
 
