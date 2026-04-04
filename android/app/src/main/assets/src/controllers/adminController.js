@@ -481,8 +481,8 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   });
 
   elements.churchForm.elements.address.addEventListener('input', async (event) => populateAddressSuggestions(event.target.value));
-  elements.churchForm.elements.address.addEventListener('change', autofillChurchAddress);
-  elements.churchForm.elements.address.addEventListener('blur', autofillChurchAddress);
+  elements.churchForm.elements.address.addEventListener('change', autofillHostAddress);
+  elements.churchForm.elements.address.addEventListener('blur', autofillHostAddress);
   elements.churchForm.elements.hostChurchName?.addEventListener('input', () => {
     const match = state.churches.find((church) => church.name.toLowerCase() === elements.churchForm.elements.hostChurchName.value.trim().toLowerCase());
     if (match) selectHostChurch(match);

@@ -62,6 +62,9 @@ Mitigations now in place:
 - After a remote timeout/error, only that failing resource enters a short cooldown window before retrying (resource-scoped cooldown), preventing repeated timeout loops without blocking other resources like hosts.
 - Manual retry still works from the sync chip and clears the cooldown immediately.
 
+
+If browser console shows `ReferenceError: autofillChurchAddress is not defined`, clear site cache / hard-refresh to load the latest JS bundle where the listener now uses `autofillHostAddress`.
+
 ### Terminology migration compatibility (merge-readiness)
 
 Internal code now standardizes on:
