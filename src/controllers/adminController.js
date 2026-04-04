@@ -717,7 +717,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     renderEventManager();
     state.selectedHostId = host.id;
     renderHostDetails(host, startEditHost);
-    elements.workspaceStatus.textContent = `${t(state, 'churchSaved')} ${t(state, 'hostPasscode')}: ${host.hostPasscode}`;
+    elements.workspaceStatus.textContent = `${t(state, 'hostSaved')} ${t(state, 'hostPasscode')}: ${host.hostPasscode}`;
     resetForm();
   });
 
