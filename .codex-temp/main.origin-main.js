@@ -225,7 +225,7 @@ function openEventSuggestion(host, eventData) {
   scrollToSection('contact-us');
   if (elements.titleRequestPanel) elements.titleRequestPanel.classList.add('hidden');
   if (elements.contactForm) {
-    elements.contactForm.elements.subject.value = `${t(state, 'suggestEventUpdate')}: ${host.name} â€” ${eventData.type}`;
+    elements.contactForm.elements.subject.value = `${t(state, 'suggestEventUpdate')}: ${host.name} — ${eventData.type}`;
     elements.contactForm.elements.message.value = '';
     elements.contactForm.elements.message.placeholder = t(state, 'contactMessagePrompt');
     elements.contactForm.elements.message.focus();
@@ -297,7 +297,7 @@ function renderAuditLog() {
   elements.auditLogList.innerHTML = state.auditLog.length
     ? state.auditLog
         .map(
-          (item) => `<li><strong>${item.action}</strong> â€” ${item.label || ''} <span class="help-text">${new Date(item.createdAt).toLocaleString('en-CA')}</span></li>`
+          (item) => `<li><strong>${item.action}</strong> — ${item.label || ''} <span class="help-text">${new Date(item.createdAt).toLocaleString('en-CA')}</span></li>`
         )
         .join('')
     : `<li class="help-text">${t(state, 'noAuditLog')}</li>`;
