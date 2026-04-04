@@ -1,15 +1,15 @@
 import { SHEETS_WEB_APP_URL } from '../config.js';
-import { loadChurches as loadLocalChurches, saveChurches as saveLocalChurches } from './storage.js';
+import { loadHosts as loadLocalHosts, saveHosts as saveLocalHosts } from './storage.js';
 
-const SUGGESTIONS_KEY = 'youth-montreal-suggestions';
-const HOST_REQUESTS_KEY = 'youth-montreal-host-requests';
+const REPORTS_KEY = 'youth-montreal-reports';
+const TITLE_REQUESTS_KEY = 'youth-montreal-title-requests';
 const AUDIT_LOG_KEY = 'youth-montreal-audit-log';
 const PENDING_SYNC_KEY = 'youth-montreal-pending-sync';
 const SYNC_URL_KEY = 'youth-montreal-sheets-url';
 const syncListeners = new Set();
 const REMOTE_TIMEOUT_MS = 8000;
-
-let lastSyncError = null;
+const REMOTE_COOLDOWN_MS = 30000;
+let remoteBlockedUntil = 0;
 
 function getRemoteUrl() {
   if (SHEETS_WEB_APP_URL && SHEETS_WEB_APP_URL.trim()) return SHEETS_WEB_APP_URL.trim();
@@ -21,6 +21,7 @@ function getRemoteUrl() {
 }
 
 const hasRemote = () => Boolean(getRemoteUrl());
+const canAttemptRemote = () => hasRemote() && Date.now() >= remoteBlockedUntil;
 
 export function getConfiguredSyncUrl() {
   return getRemoteUrl();
@@ -64,7 +65,6 @@ function markPending(resource, payload, errorMessage = '') {
     errorMessage
   };
   writePendingSync(pending);
-  lastSyncError = errorMessage;
   emitSyncState();
 }
 
@@ -85,11 +85,11 @@ async function remoteGet(resource) {
     if (!response.ok) throw new Error(`Remote GET failed: ${resource}`);
     const data = await response.json();
     if (data?.error) throw new Error(`Remote GET error: ${data.error}`);
-    lastSyncError = null;
+    remoteBlockedUntil = 0;
     return data;
-  } catch (err) {
-    lastSyncError = err.message || String(err);
-    throw err;
+  } catch (error) {
+    remoteBlockedUntil = Date.now() + REMOTE_COOLDOWN_MS;
+    throw error;
   }
 }
 
@@ -105,11 +105,11 @@ async function remotePost(resource, payload) {
     if (!response.ok) throw new Error(`Remote POST failed: ${resource}`);
     const data = await response.json();
     if (data?.error) throw new Error(`Remote POST error: ${data.error}`);
-    lastSyncError = null;
+    remoteBlockedUntil = 0;
     return data;
-  } catch (err) {
-    lastSyncError = err.message || String(err);
-    throw err;
+  } catch (error) {
+    remoteBlockedUntil = Date.now() + REMOTE_COOLDOWN_MS;
+    throw error;
   }
 }
 
@@ -134,7 +134,7 @@ function normalizeEntry(entry) {
 }
 
 async function loadList(resource, localKey) {
-  if (hasRemote()) {
+  if (canAttemptRemote()) {
     try {
       const data = await remoteGet(resource);
       const list = Array.isArray(data?.[resource]) ? data[resource].map(normalizeEntry) : [];
@@ -149,7 +149,7 @@ async function loadList(resource, localKey) {
 
 async function saveList(resource, localKey, list) {
   writeLocalList(localKey, list);
-  if (hasRemote()) {
+  if (canAttemptRemote()) {
     try {
       await remotePost(resource, list);
       clearPending(resource);
@@ -159,44 +159,44 @@ async function saveList(resource, localKey, list) {
   }
 }
 
-export async function loadChurches() {
-  if (hasRemote()) {
+export async function loadHosts() {
+  if (canAttemptRemote()) {
     try {
-      const data = await remoteGet('churches');
-      if (Array.isArray(data?.churches)) {
-        saveLocalChurches(data.churches);
-        return data.churches;
+      const data = await remoteGet('hosts');
+      if (Array.isArray(data?.hosts)) {
+        saveLocalHosts(data.hosts);
+        return data.hosts;
       }
     } catch {
       // fallback to local cache
     }
   }
-  return loadLocalChurches();
+  return loadLocalHosts();
 }
 
-export async function saveChurches(churches) {
-  saveLocalChurches(churches);
-  if (hasRemote()) {
+export async function saveHosts(hosts) {
+  saveLocalHosts(hosts);
+  if (canAttemptRemote()) {
     try {
-      await remotePost('churches', churches);
-      clearPending('churches');
+      await remotePost('hosts', hosts);
+      clearPending('hosts');
     } catch (error) {
-      markPending('churches', churches, error instanceof Error ? error.message : String(error));
+      markPending('hosts', hosts, error instanceof Error ? error.message : String(error));
     }
   }
 }
 
 export async function retryPendingSync() {
+  remoteBlockedUntil = 0;
   if (!hasRemote()) return getSyncState();
   const pending = readPendingSync();
   const entries = Object.entries(pending);
-  let success = true;
   for (const [resource, item] of entries) {
     try {
       await remotePost(resource, item?.payload ?? []);
       clearPending(resource);
     } catch {
-      success = false;
+      // Keep pending for future retries
     }
   }
   emitSyncState();
@@ -210,8 +210,7 @@ export function getSyncState() {
     hasRemote: hasRemote(),
     pendingResources,
     pendingCount: pendingResources.length,
-    pending,
-    lastSyncError
+    pending
   };
 }
 
@@ -222,39 +221,49 @@ export function subscribeSyncState(listener) {
   return () => syncListeners.delete(listener);
 }
 
-export async function loadSuggestions() {
-  return loadList('suggestions', SUGGESTIONS_KEY);
+export async function loadReports() {
+  return loadList('reports', REPORTS_KEY);
 }
 
-export async function loadHostRequests() {
-  return loadList('hostRequests', HOST_REQUESTS_KEY);
+export async function loadTitleRequests() {
+  return loadList('titleRequests', TITLE_REQUESTS_KEY);
 }
 
-export async function submitSuggestion(suggestion) {
-  const list = await loadSuggestions();
-  list.push(normalizeEntry(suggestion));
-  await saveList('suggestions', SUGGESTIONS_KEY, list);
+export async function submitReport(report) {
+  const list = await loadReports();
+  list.push(normalizeEntry(report));
+  await saveList('reports', REPORTS_KEY, list);
 }
 
-export async function submitHostRequest(request) {
-  const list = await loadHostRequests();
-  list.push(normalizeEntry(request));
-  await saveList('hostRequests', HOST_REQUESTS_KEY, list);
+export async function submitTitleRequest(titleRequest) {
+  const list = await loadTitleRequests();
+  list.push(normalizeEntry(titleRequest));
+  await saveList('titleRequests', TITLE_REQUESTS_KEY, list);
 }
 
-export async function updateSuggestionStatus(id, status) {
-  const list = await loadSuggestions();
+export async function updateReportStatus(id, status) {
+  const list = await loadReports();
   const next = list.map((item) => (item.id === id ? { ...item, status, reviewedAt: new Date().toISOString() } : item));
-  await saveList('suggestions', SUGGESTIONS_KEY, next);
+  await saveList('reports', REPORTS_KEY, next);
   return next;
 }
 
-export async function updateHostRequestStatus(id, status) {
-  const list = await loadHostRequests();
+export async function updateTitleRequestStatus(id, status) {
+  const list = await loadTitleRequests();
   const next = list.map((item) => (item.id === id ? { ...item, status, reviewedAt: new Date().toISOString() } : item));
-  await saveList('hostRequests', HOST_REQUESTS_KEY, next);
+  await saveList('titleRequests', TITLE_REQUESTS_KEY, next);
   return next;
 }
+
+// Backward-compatible aliases during terminology migration.
+export const loadChurches = loadHosts;
+export const saveChurches = saveHosts;
+export const loadSuggestions = loadReports;
+export const loadHostRequests = loadTitleRequests;
+export const submitSuggestion = submitReport;
+export const submitHostRequest = submitTitleRequest;
+export const updateSuggestionStatus = updateReportStatus;
+export const updateHostRequestStatus = updateTitleRequestStatus;
 
 export async function loadAuditLog() {
   return readLocalList(AUDIT_LOG_KEY);

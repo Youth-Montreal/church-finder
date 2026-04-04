@@ -10,17 +10,17 @@ function hasUpcomingEvent(event) {
   return eventDate >= today && eventDate <= cutoff;
 }
 
-export function renderChurchDetails({ state, church, detailsElement, emptyStateElement, onEdit, onSuggestPlaceUpdate }) {
-  const upcoming = (church.events || []).filter(hasUpcomingEvent).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
-  const canEdit = state.isAdminMode || (state.isHostMode && state.hostChurchId === church.id);
-  const publicAddress = shortenAddress(church.address);
+export function renderHostDetails({ state, host, detailsElement, emptyStateElement, onEdit, onSuggestPlaceUpdate }) {
+  const upcoming = (host.events || []).filter(hasUpcomingEvent).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+  const canEdit = state.isAdminMode || (state.isHostMode && state.hostHostId === host.id);
+  const publicAddress = shortenAddress(host.address);
 
   detailsElement.innerHTML = `
     <article class="detail-card">
-      <h3>${church.name}</h3>
+      <h3>${host.name}</h3>
       ${publicAddress ? `<p>${publicAddress}</p>` : ''}
-      <p><a href="${googlePlaceLink(church)}" target="_blank" rel="noreferrer">${t(state, 'openMaps')}</a></p>
-      ${church.languages?.length ? `<p><strong>${t(state, 'languagesLabel')}</strong> ${church.languages.join(', ')}</p>` : ''}
+      <p><a href="${googlePlaceLink(host)}" target="_blank" rel="noreferrer">${t(state, 'openMaps')}</a></p>
+      ${host.languages?.length ? `<p><strong>${t(state, 'languagesLabel')}</strong> ${host.languages.join(', ')}</p>` : ''}
       <div class="detail-actions-row detail-actions-row-single">
         <button type="button" class="secondary issue-report-btn icon-mobile-btn suggest-icon-btn" aria-label="${t(state, 'reportIssue')}"><span class="icon-label">${t(state, 'reportIssue')}</span></button>
         <span class="help-text">${t(state, 'isSomethingWrong')}</span>
@@ -32,17 +32,17 @@ export function renderChurchDetails({ state, church, detailsElement, emptyStateE
           : `<li>${t(state, 'noGatherings')}</li>`}
       </ul>
       <p>
-        ${church.website ? `<a href="${church.website}" target="_blank" rel="noreferrer">${t(state, 'website')}</a>` : ''}
-        ${church.instagram ? ` · <a href="${church.instagram}" target="_blank" rel="noreferrer">${t(state, 'instagram')}</a>` : ''}
-        ${church.facebook ? ` · <a href="${church.facebook}" target="_blank" rel="noreferrer">${t(state, 'facebook')}</a>` : ''}
-        ${church.whatsapp ? ` · <a href="${church.whatsapp}" target="_blank" rel="noreferrer">${t(state, 'whatsapp')}</a>` : ''}
+        ${host.website ? `<a href="${host.website}" target="_blank" rel="noreferrer">${t(state, 'website')}</a>` : ''}
+        ${host.instagram ? ` · <a href="${host.instagram}" target="_blank" rel="noreferrer">${t(state, 'instagram')}</a>` : ''}
+        ${host.facebook ? ` · <a href="${host.facebook}" target="_blank" rel="noreferrer">${t(state, 'facebook')}</a>` : ''}
+        ${host.whatsapp ? ` · <a href="${host.whatsapp}" target="_blank" rel="noreferrer">${t(state, 'whatsapp')}</a>` : ''}
       </p>
-      ${state.isAdminMode && church.hostPasscode ? `<p class="help-text"><strong>${t(state, 'hostPasscode')}:</strong> ${church.hostPasscode}</p>` : ''}
+      ${state.isAdminMode && host.hostPasscode ? `<p class="help-text"><strong>${t(state, 'hostPasscode')}:</strong> ${host.hostPasscode}</p>` : ''}
     </article>
   `;
 
-  detailsElement.querySelector('.edit-pin-btn')?.addEventListener('click', () => onEdit(church.id));
-  detailsElement.querySelector('.issue-report-btn')?.addEventListener('click', () => onSuggestPlaceUpdate?.(church));
+  detailsElement.querySelector('.edit-pin-btn')?.addEventListener('click', () => onEdit(host.id));
+  detailsElement.querySelector('.issue-report-btn')?.addEventListener('click', () => onSuggestPlaceUpdate?.(host));
 
   detailsElement.classList.remove('hidden');
   emptyStateElement.classList.add('hidden');

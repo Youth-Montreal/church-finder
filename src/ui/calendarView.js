@@ -17,7 +17,7 @@ function normalizeDate(value) {
   return new Date(`${value}T00:00:00`);
 }
 
-function expandEvent(event, rangeStart, rangeEnd, church, eventIndex, nextOnly = false) {
+function expandEvent(event, rangeStart, rangeEnd, host, eventIndex, nextOnly = false) {
   const baseDate = normalizeDate(event.date);
   const recurrence = event.recurrence || 'none';
   const occurrences = [];
@@ -36,9 +36,9 @@ function expandEvent(event, rangeStart, rangeEnd, church, eventIndex, nextOnly =
   while (cursor <= rangeEnd) {
     if (cursor >= rangeStart) {
       occurrences.push({
-        churchId: church.id,
-        churchName: church.name,
-        churchAddress: church.address,
+        hostId: host.id,
+        hostName: host.name,
+        hostAddress: host.address,
         title: event.title || event.type,
         type: event.type,
         ageGroup: event.ageGroup || '',

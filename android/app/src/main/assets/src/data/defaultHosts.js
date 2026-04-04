@@ -5,7 +5,7 @@ const inDays = (count) => {
   return d.toISOString().slice(0, 10);
 };
 
-export const defaultChurches = [
+export const defaultHosts = [
   /*{
     id: crypto.randomUUID(),
     hostPasscode: 'H-NVMTL1',
