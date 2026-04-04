@@ -75,15 +75,22 @@ For merge safety while all modules are being aligned, repository and app state k
 
 ### Apps Script resource mapping requirement
 
-The frontend syncs using resources: `churches`, `suggestions`, and `hostRequests`.
+The frontend syncs using canonical resources: `hosts`, `reports`, and `hostRequests`.
 
 Your Apps Script backend must map those resources to sheet tabs:
 
-- `churches` -> `hosts`
-- `suggestions` -> `reports`
+- `hosts` -> `hosts`
+- `reports` -> `reports`
 - `hostRequests` -> `hostRequests`
 
-Without this mapping, reads/writes fail for `churches` and `suggestions`, leaving the app in perpetual pending sync.
+Without this exact mapping, reads/writes can fail for host data and leave sync pending forever.
+
+Note: for canonical resource names, backend GET now auto-creates missing tabs with `data_json` header and returns an empty list (so a missing `reports`/`hostRequests` tab no longer blocks loading `hosts`).
+
+Migration tip (required when moving from old builds):
+- Google Sheets: keep tab name as `hosts` (you already renamed it).
+- Browser local data: open DevTools -> Application (or Storage) -> Local Storage -> your app origin and delete `youth-montreal-churches`; the app now uses `youth-montreal-hosts`.
+- If needed from console: `localStorage.setItem('youth-montreal-hosts', localStorage.getItem('youth-montreal-churches') || '[]'); localStorage.removeItem('youth-montreal-churches');`
 
 ### Apps Script CORS gotcha
 
