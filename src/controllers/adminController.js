@@ -44,12 +44,12 @@ function addEventRow(eventsList, eventTemplate, state, event = defaultEvent()) {
 }
 
 function canEditHost(state, hostId) {
-  return state.isAdminMode || (state.isHostMode && state.hostHostId === hostId);
+  return state.isAdminMode || (state.isHostMode && state.activeHostId === hostId);
 }
 
-function getRelevantSuggestions(state) {
-  if (state.isAdminMode) return state.suggestions;
-  if (state.isHostMode) return state.suggestions.filter((item) => item.hostId === state.hostHostId || !item.hostId);
+function getRelevantReports(state) {
+  if (state.isAdminMode) return state.reports;
+  if (state.isHostMode) return state.reports.filter((item) => item.hostId === state.activeHostId || !item.hostId);
   return [];
 }
 
@@ -195,7 +195,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   const renderHostManager = () => {
     updateHostOptions();
     const query = elements.hostManagerSearch?.value.trim().toLowerCase() || '';
-    const visibleHosts = state.isHostMode ? state.hosts.filter((host) => host.id === state.hostHostId) : state.hosts;
+    const visibleHosts = state.isHostMode ? state.hosts.filter((host) => host.id === state.activeHostId) : state.hosts;
     const rows = visibleHosts.filter((host) => `${host.name} ${host.address || ''}`.toLowerCase().includes(query));
 
     elements.hostManagerList.innerHTML = rows.length
@@ -214,7 +214,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
   const renderEventManager = () => {
     const query = elements.eventManagerSearch?.value.trim().toLowerCase() || '';
-    const hosts = state.isHostMode ? state.hosts.filter((host) => host.id === state.hostHostId) : state.hosts;
+    const hosts = state.isHostMode ? state.hosts.filter((host) => host.id === state.activeHostId) : state.hosts;
     const today = new Date().toISOString().slice(0, 10);
 
     const rows = hosts
@@ -250,30 +250,30 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   };
 
   const renderModeration = () => {
-    const moderationMode = elements.workspaceModeration.dataset.mode || 'suggestions';
+    const moderationMode = elements.workspaceModeration.dataset.mode || 'reports';
     const moderationTitle = elements.workspaceModeration.querySelector('h3');
-    if (moderationTitle) moderationTitle.textContent = t(state, moderationMode === 'hostRequests' ? 'reviewHostRequestsTitle' : 'reviewSuggestionsTitle');
-    const suggestions = getRelevantSuggestions(state);
+    if (moderationTitle) moderationTitle.textContent = t(state, moderationMode === 'hostRequests' ? 'reviewHostRequestsTitle' : 'reviewReportsTitle');
+    const reports = getRelevantReports(state);
     const hostRequests = state.isAdminMode ? state.hostRequests : [];
 
-    elements.suggestionsQueue.innerHTML = suggestions.length
-      ? suggestions.map((item) => `
+    elements.reportsQueue.innerHTML = reports.length
+      ? reports.map((item) => `
           <article class="queue-item">
-            <p><strong>${item.subject || item.type || 'Suggestion'}</strong></p>
+            <p><strong>${item.subject || item.type || 'Report'}</strong></p>
             <p>${item.message || ''}</p>
-            <div class="queue-actions" data-id="${item.id}" data-resource="suggestion">
+            <div class="queue-actions" data-id="${item.id}" data-resource="report">
               <button type="button" data-status="pending">${t(state, 'statusPending')}</button>
               <button type="button" data-status="approved">${t(state, 'approve')}</button>
               <button type="button" class="secondary" data-status="denied">${t(state, 'deny')}</button>
             </div>
           </article>
         `).join('')
-      : `<p class="help-text">${t(state, 'noPendingSuggestions')}</p>`;
+      : `<p class="help-text">${t(state, 'noPendingReports')}</p>`;
 
-    elements.hostQueue.innerHTML = hostRequests.length
+    elements.hostRequestsQueue.innerHTML = hostRequests.length
       ? hostRequests.map((item) => `
           <article class="queue-item">
-            <p><strong>${item.churchName || item.organization || item.fullName}</strong></p>
+            <p><strong>${item.hostName || item.organization || item.fullName}</strong></p>
             <p>${item.position || ''} · ${item.phone || ''}</p>
             <p>${item.message || item.details || ''}</p>
             <div class="queue-actions" data-id="${item.id}" data-resource="hostRequest">
@@ -287,8 +287,8 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
         `).join('')
       : `<p class="help-text">${t(state, 'noPendingHostRequests')}</p>`;
 
-    elements.suggestionsQueue.classList.toggle('hidden', moderationMode !== 'suggestions');
-    elements.hostQueue.classList.toggle('hidden', moderationMode !== 'hostRequests' || !state.isAdminMode);
+    elements.reportsQueue.classList.toggle('hidden', moderationMode !== 'reports');
+    elements.hostRequestsQueue.classList.toggle('hidden', moderationMode !== 'hostRequests' || !state.isAdminMode);
   };
 
   const setHostFields = (host) => {
@@ -399,7 +399,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   elements.toggleHost.addEventListener('click', () => {
     if (state.isHostMode) {
       state.isHostMode = false;
-      state.hostHostId = null;
+      state.activeHostId = null;
       setWorkspaceVisibility();
       renderHostManager();
       renderEventManager();
@@ -416,7 +416,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     }
 
     state.isHostMode = true;
-    state.hostHostId = host.id;
+    state.activeHostId = host.id;
     state.isAdminMode = false;
     setWorkspaceVisibility();
     renderHostManager();
@@ -436,7 +436,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     state.isAdminMode = !state.isAdminMode;
     if (state.isAdminMode) {
       state.isHostMode = false;
-      state.hostHostId = null;
+      state.activeHostId = null;
       elements.workspaceStatus.textContent = t(state, 'adminWorkspaceActive');
     }
 
@@ -448,7 +448,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
   elements.workspaceViewButtons.forEach((button) => {
     button.addEventListener('click', () => {
-      if (state.isEditingChurch) return;
+      if (state.isEditingHost) return;
       elements.workspaceViewButtons.forEach((item) => item.classList.toggle('active', item === button));
       const mode = button.dataset.workspaceView;
       elements.workspacePlacesView.classList.toggle('hidden', mode !== 'places');
@@ -550,9 +550,9 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     const status = button.dataset.status;
     if (!id || !resource) return;
 
-    if (resource === 'suggestion') {
-      state.suggestions = await updateReportStatus(id, status);
-      state.auditLog = await appendAuditLog({ action: `suggestion_${status}`, label: id });
+    if (resource === 'report') {
+      state.reports = await updateReportStatus(id, status);
+      state.auditLog = await appendAuditLog({ action: `report_${status}`, label: id });
       elements.workspaceStatus.textContent = t(state, 'moderationUpdated');
     }
 
@@ -563,7 +563,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
         state.hosts.push({
           id: crypto.randomUUID(),
           hostPasscode: generatedHostCode,
-          name: state.hostRequests.find((item) => item.id === id)?.churchName || t(state, 'newHostChurchName'),
+          name: state.hostRequests.find((item) => item.id === id)?.hostName || t(state, 'newHostName'),
           address: '',
           googleMapsUrl: '',
           googlePlaceId: '',
@@ -593,7 +593,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
   elements.addEventButton.addEventListener('click', () => addEventRow(elements.eventsList, elements.eventTemplate, state));
   elements.workspaceAddEventButton.addEventListener('click', () => {
-    const preferredHostId = state.hostHostId || state.selectedHostId || null;
+    const preferredHostId = state.activeHostId || state.selectedHostId || null;
     startEditHost(preferredHostId, { mode: 'new-event' });
   });
   elements.cancelEditButton.addEventListener('click', resetForm);
@@ -656,7 +656,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       const host = state.hosts.find((item) => item.id === hostId);
       const nextEvent = eventRows[0];
       if (!host || !nextEvent) {
-        elements.adminStatus.textContent = t(state, 'selectChurchPrompt');
+        elements.adminStatus.textContent = t(state, 'selectHostPrompt');
         return;
       }
       host.events.push(nextEvent);
@@ -672,7 +672,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     }
 
     const hostId = formData.get('hostId') || crypto.randomUUID();
-    if (state.isHostMode && hostId !== state.hostHostId && formData.get('hostId')) return;
+    if (state.isHostMode && hostId !== state.activeHostId && formData.get('hostId')) return;
     const existingEvents = existing?.events || [];
     const host = {
       id: hostId,

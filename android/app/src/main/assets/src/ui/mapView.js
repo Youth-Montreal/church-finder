@@ -30,22 +30,22 @@ export function createMap(id = 'map') {
   return map;
 }
 
-export function renderMarkers({ map, state, onSelectChurch }) {
+export function renderMarkers({ map, state, onSelectHost }) {
   state.markers.forEach((marker) => marker.remove());
   state.markers.clear();
 
-  state.churches.forEach((church) => {
-    if (state.filteredIds && !state.filteredIds.has(church.id)) return;
-    if (state.mapFilteredIds && !state.mapFilteredIds.has(church.id)) return;
+  state.hosts.forEach((host) => {
+    if (state.filteredIds && !state.filteredIds.has(host.id)) return;
+    if (state.mapFilteredIds && !state.mapFilteredIds.has(host.id)) return;
 
-    const isSelected = state.selectedChurchId === church.id;
-    const marker = L.marker([Number(church.lat), Number(church.lng)], {
+    const isSelected = state.selectedHostId === host.id;
+    const marker = L.marker([Number(host.lat), Number(host.lng)], {
       icon: isSelected ? RED_ICON : BLUE_ICON
     }).addTo(map);
 
-    marker.bindPopup(`<strong>${church.name}</strong>`);
-    marker.on('click', () => onSelectChurch(church));
-    state.markers.set(church.id, marker);
+    marker.bindPopup(`<strong>${host.name}</strong>`);
+    marker.on('click', () => onSelectHost(host));
+    state.markers.set(host.id, marker);
   });
 }
 

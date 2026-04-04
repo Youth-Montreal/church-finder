@@ -15,7 +15,7 @@ const elements = {
   adminTitle: document.querySelector('#admin-title'),
   adminStatus: document.querySelector('#admin-status'),
   reportsQueue: document.querySelector('#reports-queue'),
-  titleQueue: document.querySelector('#title-queue'),
+  hostRequestsQueue: document.querySelector('#host-requests-queue'),
   toggleAdmin: document.querySelector('#toggle-admin'),
   toggleHost: document.querySelector('#toggle-host'),
   addHostButton: document.querySelector('#add-host'),
@@ -112,43 +112,11 @@ const state = {
   onMapHostSelect: null,
   isAdminMode: false,
   isHostMode: false,
-  hostHostId: null,
+  activeHostId: null,
   calendarAnchorDate: new Date()
 };
 
 const map = createMap();
-
-
-// Backward-compatible element aliases during terminology migration.
-elements.suggestionsQueue = elements.reportsQueue;
-elements.hostQueue = elements.titleQueue;
-elements.addChurchButton = elements.addHostButton;
-elements.churchForm = elements.hostForm;
-elements.hostRequestForm = elements.titleRequestForm;
-elements.hostRequestStatus = elements.titleRequestStatus;
-elements.hostRequestPanel = elements.titleRequestPanel;
-elements.hostRequestCancel = elements.titleRequestCancel;
-elements.toggleHostRequest = elements.toggleTitleRequest;
-elements.churchManagerSearch = elements.hostManagerSearch;
-elements.churchSearchWrap = elements.hostSearchWrap;
-elements.toggleChurchSearch = elements.toggleHostSearch;
-elements.churchManagerList = elements.hostManagerList;
-elements.myChurchSection = elements.myHostSection;
-
-function defineAlias(obj, aliasKey, primaryKey) {
-  Object.defineProperty(obj, aliasKey, {
-    get() { return obj[primaryKey]; },
-    set(value) { obj[primaryKey] = value; },
-    configurable: true,
-    enumerable: false
-  });
-}
-
-defineAlias(state, 'churches', 'hosts');
-defineAlias(state, 'suggestions', 'reports');
-defineAlias(state, 'selectedChurchId', 'selectedHostId');
-defineAlias(state, 'hostChurchId', 'hostHostId');
-defineAlias(state, 'onMapChurchSelect', 'onMapHostSelect');
 
 function setupMapResizeSupport() {
   const refreshMapSize = () => {
@@ -416,14 +384,14 @@ function setupMapFilters(finderController) {
     document.querySelector('#finder-radius-value').textContent = label;
   };
 
-  const matchesMapFilters = (church) => {
+  const matchesMapFilters = (host) => {
     const language = elements.mapFilterLanguage.value.trim().toLowerCase();
     const eventType = elements.mapFilterType.value.trim().toLowerCase();
     const ageGroup = elements.mapFilterAge.value;
 
-    const byLanguage = !language || (church.languages || []).join(' ').toLowerCase().includes(language);
-    const byEventType = !eventType || (church.events || []).some((event) => (event.type || '').toLowerCase().includes(eventType));
-    const byAge = !ageGroup || (church.events || []).some((event) => (event.ageGroup || 'all') === ageGroup);
+    const byLanguage = !language || (host.languages || []).join(' ').toLowerCase().includes(language);
+    const byEventType = !eventType || (host.events || []).some((event) => (event.type || '').toLowerCase().includes(eventType));
+    const byAge = !ageGroup || (host.events || []).some((event) => (event.ageGroup || 'all') === ageGroup);
 
     return byLanguage && byEventType && byAge;
   };
@@ -438,7 +406,7 @@ function setupMapFilters(finderController) {
       state.filteredIds = null;
       rerenderMarkers();
     }
-    elements.finderStatus.textContent = `${matches.length} ${t(state, 'churchesMatchingFilters')}`;
+    elements.finderStatus.textContent = `${matches.length} ${t(state, 'hostsMatchingFilters')}`;
   };
 
   elements.mapApply.addEventListener('click', applyMapFilters);
@@ -475,7 +443,7 @@ function setupPublicForms() {
     state.reports = await loadReports();
     state.auditLog = await appendAuditLog({ action: 'report_submitted', label: data.subject || 'contact' });
     elements.contactForm.reset();
-    elements.contactStatus.textContent = t(state, 'suggestionSubmitted');
+    elements.contactStatus.textContent = t(state, 'reportSubmitted');
     renderAuditLog();
     if (state.isAdminMode || state.isHostMode) renderModeration();
   });
@@ -497,7 +465,7 @@ function setupPublicForms() {
     const data = Object.fromEntries(new FormData(elements.titleRequestForm).entries());
     await submitHostRequest({ id: crypto.randomUUID(), ...data, createdAt: new Date().toISOString() });
     state.hostRequests = await loadHostRequests();
-    state.auditLog = await appendAuditLog({ action: 'title_request_submitted', label: data.churchName || 'host request' });
+    state.auditLog = await appendAuditLog({ action: 'title_request_submitted', label: data.hostName || 'host request' });
     elements.titleRequestForm.reset();
     elements.titleRequestStatus.textContent = t(state, 'hostRequestSubmitted');
     toggleTitleRequestMode(false);

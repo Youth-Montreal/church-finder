@@ -1,6 +1,6 @@
-export function googlePlaceLink(church) {
-  const placeId = church.googlePlaceId?.trim();
-  const mapsUrl = church.googleMapsUrl?.trim();
+export function googlePlaceLink(host) {
+  const placeId = host.googlePlaceId?.trim();
+  const mapsUrl = host.googleMapsUrl?.trim();
 
   if (placeId) {
     return `https://www.google.com/maps/search/?api=1&query_place_id=${encodeURIComponent(placeId)}`;
@@ -8,8 +8,8 @@ export function googlePlaceLink(church) {
 
   if (mapsUrl) return mapsUrl;
 
-  if (church.lat && church.lng) {
-    return `https://www.google.com/maps/search/?api=1&query=${church.lat},${church.lng}`;
+  if (host.lat && host.lng) {
+    return `https://www.google.com/maps/search/?api=1&query=${host.lat},${host.lng}`;
   }
 
   return 'https://www.google.com/maps';

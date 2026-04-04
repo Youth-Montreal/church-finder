@@ -12,7 +12,7 @@ function hasUpcomingEvent(event) {
 
 export function renderHostDetails({ state, host, detailsElement, emptyStateElement, onEdit, onSuggestPlaceUpdate }) {
   const upcoming = (host.events || []).filter(hasUpcomingEvent).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
-  const canEdit = state.isAdminMode || (state.isHostMode && state.hostHostId === host.id);
+  const canEdit = state.isAdminMode || (state.isHostMode && state.activeHostId === host.id);
   const publicAddress = shortenAddress(host.address);
 
   detailsElement.innerHTML = `

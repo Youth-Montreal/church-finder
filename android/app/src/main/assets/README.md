@@ -73,28 +73,40 @@ Internal code now standardizes on:
 - `host` (instead of church/place/organizer internals)
 - `event`
 - `report`
-- Host form field names are canonicalized to `hostId` and `hostName` in both web and Android asset templates/controllers.
+- `hostRequest`
+- Host form field names are canonicalized to `hostId` and `hostName`.
 
-For merge safety while all modules are being aligned, repository and app state keep backward-compatible aliases so older modules still run during transition. User-facing labels remain context-specific aliases from i18n.
+Source-of-truth note:
+
+- Web source files at the repo root (`index.html`, `styles.css`, `src/**`) are the source of truth.
+- Android assets under `android/app/src/main/assets` are generated from those files by Gradle task `syncWebAssets` before Android builds.
+- If web works but Android still looks stale, rebuild the Android project so the asset sync runs.
+
+Compatibility now focuses on persisted data instead of code aliases:
+
+- Local storage auto-migrates `youth-montreal-churches` -> `youth-montreal-hosts`.
+- Apps Script accepts legacy resource names like `churches`, `suggestions`, and `titleRequests`, then resolves them to canonical `hosts`, `reports`, and `hostRequests`.
+- If an old sheet tab exists with a legacy name and the canonical tab does not exist yet, Apps Script renames the tab to the canonical name.
+- User-facing labels can still say church/event/report variants through `src/i18n.js`, depending on context.
 
 ### Apps Script resource mapping requirement
 
 The frontend syncs using canonical resources: `hosts`, `reports`, and `hostRequests`.
 
-Your Apps Script backend must map those resources to sheet tabs:
+Your Apps Script backend must resolve those resources to sheet tabs:
 
 - `hosts` -> `hosts`
 - `reports` -> `reports`
 - `hostRequests` -> `hostRequests`
 
-Without this exact mapping, reads/writes can fail for host data and leave sync pending forever.
+Without those canonical resources, reads/writes can fail for host data and leave sync pending forever.
 
-Note: for canonical resource names, backend GET now auto-creates missing tabs with `data_json` header and returns an empty list (so a missing `reports`/`hostRequests` tab no longer blocks loading `hosts`).
+Note: backend GET now auto-creates missing tabs with `data_json` header and returns an empty list, so a missing `reports`/`hostRequests` tab no longer blocks loading `hosts`.
 
 Migration tip (required when moving from old builds):
-- Google Sheets: keep tab name as `hosts` (you already renamed it).
-- Browser local data: open DevTools -> Application (or Storage) -> Local Storage -> your app origin and delete `youth-montreal-churches`; the app now uses `youth-montreal-hosts`.
-- If needed from console: `localStorage.setItem('youth-montreal-hosts', localStorage.getItem('youth-montreal-churches') || '[]'); localStorage.removeItem('youth-montreal-churches');`
+- Google Sheets: preferred tab names are `hosts`, `reports`, and `hostRequests`.
+- Browser local data: the app will migrate `youth-montreal-churches` automatically on next load.
+- Host request payloads are now canonicalized to `hostName`, but older records using `churchName` still load.
 
 ### Apps Script CORS gotcha
 

@@ -55,9 +55,9 @@ function expandEvent(event, rangeStart, rangeEnd, host, eventIndex, nextOnly = f
   return occurrences;
 }
 
-export function collectOccurrences(churches, rangeStart, rangeEnd, nextOnly = false) {
-  return churches
-    .flatMap((church) => (church.events || []).flatMap((event, index) => expandEvent(event, rangeStart, rangeEnd, church, index, nextOnly)))
+export function collectOccurrences(hosts, rangeStart, rangeEnd, nextOnly = false) {
+  return hosts
+    .flatMap((host) => (host.events || []).flatMap((event, index) => expandEvent(event, rangeStart, rangeEnd, host, index, nextOnly)))
     .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
 }
 
@@ -67,15 +67,15 @@ function startOfWeek(date) {
   return start;
 }
 
-function canManage(state, churchId) {
-  return state.isAdminMode || (state.isHostMode && state.hostChurchId === churchId);
+function canManage(state, hostId) {
+  return state.isAdminMode || (state.isHostMode && state.activeHostId === hostId);
 }
 
 function renderActionButtons(rowIndex, state, row) {
   return `
     <div class="finder-actions compact-actions">
       <button type="button" class="secondary calendar-suggest-btn icon-mobile-btn suggest-icon-btn" data-row-index="${rowIndex}" aria-label="${t(state, 'suggestEventUpdate')}"><span class="icon-label">${t(state, 'suggestEventUpdate')}</span></button>
-      ${canManage(state, row.churchId) ? `<button type="button" class="secondary calendar-edit-btn icon-mobile-btn edit-icon-btn" data-row-index="${rowIndex}" aria-label="${t(state, 'editPin')}"><span class="icon-label">${t(state, 'editPin')}</span></button>` : ''}
+      ${canManage(state, row.hostId) ? `<button type="button" class="secondary calendar-edit-btn icon-mobile-btn edit-icon-btn" data-row-index="${rowIndex}" aria-label="${t(state, 'editPin')}"><span class="icon-label">${t(state, 'editPin')}</span></button>` : ''}
     </div>
   `;
 }
@@ -86,8 +86,8 @@ function renderDailyList(rows, state) {
       <h4>${row.title || row.type}</h4>
       <p>${row.type}</p>
       <p><strong>${row.date}</strong> ${t(state, 'atLabel')} ${row.time || '00:00'}</p>
-      <p>${row.churchName}</p>
-      ${row.churchAddress ? `<p>${shortenAddress(row.churchAddress)}</p>` : ''}
+      <p>${row.hostName}</p>
+      ${row.hostAddress ? `<p>${shortenAddress(row.hostAddress)}</p>` : ''}
       ${row.ageGroup ? `<p>${t(state, 'ageGroup')}: ${row.ageGroup}</p>` : ''}
       ${renderActionButtons(index, state, row)}
     </article>
@@ -120,7 +120,7 @@ function renderGrid(days, rows, state, compactMonth = false) {
                       <div class="agenda-event-time">${row.time || '00:00'}</div>
                       <div class="agenda-event-info">
                         <strong>${row.title || row.type}</strong>
-                        <span>${row.churchName}</span>
+                        <span>${row.hostName}</span>
                         <small>${row.type}</small>
                       </div>
                     </div>
@@ -151,12 +151,12 @@ function renderGrid(days, rows, state, compactMonth = false) {
                 ? dayRows.map((row) => {
                     const index = rows.indexOf(row);
                     return `
-                      <article class="calendar-badge ${canManage(state, row.churchId) ? 'calendar-badge-manageable' : ''}" data-row-index="${index}" data-day-key="${dateKey}">
+                      <article class="calendar-badge ${canManage(state, row.hostId) ? 'calendar-badge-manageable' : ''}" data-row-index="${index}" data-day-key="${dateKey}">
                         <strong>${row.time || '00:00'}</strong>
                         <span>${row.title || row.type}</span>
                         <small>${row.type}</small>
-                        <em>${row.churchName}</em>
-                        ${canManage(state, row.churchId) ? '<span class="calendar-danger-icon" aria-hidden="true">⚠</span>' : ''}
+                        <em>${row.hostName}</em>
+                        ${canManage(state, row.hostId) ? '<span class="calendar-danger-icon" aria-hidden="true">⚠</span>' : ''}
                       </article>
                     `;
                   }).join('')
@@ -201,13 +201,13 @@ export function renderCalendarList({ state, elements, onSuggestEventUpdate, onEd
   const isFilteringByRange = from || to;
   const nextOnly = !isFilteringByRange;
 
-  const rows = collectOccurrences(state.churches, rangeStart, rangeEnd, nextOnly).filter((row) => {
-    const church = state.churches.find((item) => item.id === row.churchId);
-    if (!church) return false;
-    const text = `${row.churchName} ${row.churchAddress || ''} ${row.title || ''} ${row.type}`.toLowerCase();
+  const rows = collectOccurrences(state.hosts, rangeStart, rangeEnd, nextOnly).filter((row) => {
+    const host = state.hosts.find((item) => item.id === row.hostId);
+    if (!host) return false;
+    const text = `${row.hostName} ${row.hostAddress || ''} ${row.title || ''} ${row.type}`.toLowerCase();
     const byKeyword = !keyword || text.includes(keyword);
     const byType = !type || row.type.toLowerCase().includes(type);
-    const byLanguage = !language || (church.languages || []).join(' ').toLowerCase().includes(language);
+    const byLanguage = !language || (host.languages || []).join(' ').toLowerCase().includes(language);
     const byAge = !ageGroup || (row.ageGroup || '').toLowerCase() === ageGroup.toLowerCase();
     const rowDate = normalizeDate(row.date);
     const byDate = rowDate >= rangeStart && rowDate <= rangeEnd;
@@ -236,14 +236,14 @@ export function renderCalendarList({ state, elements, onSuggestEventUpdate, onEd
     button.addEventListener('click', () => {
       const row = rows[Number(button.dataset.rowIndex)];
       if (!row) return;
-      const church = state.churches.find((item) => item.id === row.churchId);
-      if (!church) return;
+      const host = state.hosts.find((item) => item.id === row.hostId);
+      if (!host) return;
       if (mode !== 'daily') {
-        if (canManage(state, row.churchId)) onEditEvent?.(row);
+        if (canManage(state, row.hostId)) onEditEvent?.(row);
         else onOpenDay?.(row.date);
         return;
       }
-      onSuggestEventUpdate?.(church, row);
+      onSuggestEventUpdate?.(host, row);
     });
   });
 
@@ -261,7 +261,7 @@ export function renderCalendarList({ state, elements, onSuggestEventUpdate, onEd
   elements.calendarList.querySelectorAll('.calendar-edit-btn').forEach((button) => {
     button.addEventListener('click', () => {
       const row = rows[Number(button.dataset.rowIndex)];
-      if (!row || !canManage(state, row.churchId)) return;
+      if (!row || !canManage(state, row.hostId)) return;
       onEditEvent?.(row);
     });
   });

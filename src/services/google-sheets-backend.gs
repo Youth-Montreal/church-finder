@@ -3,20 +3,66 @@
  * Canonical resources: 'hosts', 'reports', 'hostRequests'
  */
 
-const CONFIG = {
-  SHEET_NAME_HOSTS: 'hosts',
-  SHEET_NAME_REPORTS: 'reports',
-  SHEET_NAME_HOST_REQUESTS: 'hostRequests'
+const RESOURCE_CONFIG = {
+  hosts: {
+    sheetName: 'hosts',
+    resourceAliases: ['churches'],
+    sheetAliases: ['churches']
+  },
+  reports: {
+    sheetName: 'reports',
+    resourceAliases: ['suggestion', 'suggestions'],
+    sheetAliases: ['suggestions']
+  },
+  hostRequests: {
+    sheetName: 'hostRequests',
+    resourceAliases: ['hostRequest', 'titleRequest', 'titleRequests'],
+    sheetAliases: ['hostRequest', 'titleRequest', 'titleRequests']
+  }
 };
 
-const RESOURCE_TO_SHEET = {
-  hosts: CONFIG.SHEET_NAME_HOSTS,
-  reports: CONFIG.SHEET_NAME_REPORTS,
-  hostRequests: CONFIG.SHEET_NAME_HOST_REQUESTS
-};
+function canonicalizeResource(resource) {
+  const resourceName = String(resource || '').trim();
+  if (!resourceName) return '';
+  if (RESOURCE_CONFIG[resourceName]) return resourceName;
+  const match = Object.keys(RESOURCE_CONFIG).find((key) =>
+    RESOURCE_CONFIG[key].resourceAliases.includes(resourceName)
+  );
+  return match || '';
+}
 
-function resolveSheetName(resource) {
-  return RESOURCE_TO_SHEET[resource] || '';
+function ensureJsonSheet(sheet) {
+  if (!sheet) return;
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['data_json']);
+    return;
+  }
+  const header = String(sheet.getRange(1, 1).getValue() || '').trim();
+  if (!header) sheet.getRange(1, 1).setValue('data_json');
+}
+
+function resolveSheet(resource, spreadsheet) {
+  const canonicalResource = canonicalizeResource(resource);
+  if (!canonicalResource) return null;
+
+  const config = RESOURCE_CONFIG[canonicalResource];
+  const preferredSheet = spreadsheet.getSheetByName(config.sheetName);
+  let sheet = preferredSheet;
+
+  if (!sheet) {
+    sheet = config.sheetAliases
+      .map((name) => spreadsheet.getSheetByName(name))
+      .find(Boolean) || null;
+  }
+
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(config.sheetName);
+  } else if (sheet.getName() !== config.sheetName && !preferredSheet) {
+    sheet.setName(config.sheetName);
+  }
+
+  ensureJsonSheet(sheet);
+  return { resource: canonicalResource, sheet };
 }
 
 /**
@@ -24,52 +70,33 @@ function resolveSheetName(resource) {
  */
 function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  [CONFIG.SHEET_NAME_HOSTS, CONFIG.SHEET_NAME_REPORTS, CONFIG.SHEET_NAME_HOST_REQUESTS].forEach(name => {
-    if (!ss.getSheetByName(name)) {
-      const sheet = ss.insertSheet(name);
-      sheet.appendRow(['data_json']);
-    }
+  Object.keys(RESOURCE_CONFIG).forEach((resource) => {
+    const resolved = resolveSheet(resource, ss);
+    if (resolved) ensureJsonSheet(resolved.sheet);
   });
 }
 
 function doGet(e) {
-  const resource = e.parameter.resource;
-  const sheetName = resolveSheetName(resource);
-  if (!sheetName) return createResponse({ error: 'Resource not found' });
+  const resolved = resolveSheet(e.parameter.resource, SpreadsheetApp.getActiveSpreadsheet());
+  if (!resolved) return createResponse({ error: 'Resource not found' });
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(sheetName);
-  if (!sheet) {
-    sheet = ss.insertSheet(sheetName);
-    sheet.appendRow(['data_json']);
-    return createResponse({ [resource]: [] });
-  }
-
-  const values = sheet.getDataRange().getValues();
+  const values = resolved.sheet.getDataRange().getValues();
   const data = values.length > 1 ? JSON.parse(values[1][0]) : [];
 
   const result = {};
-  result[resource] = data;
+  result[resolved.resource] = data;
   return createResponse(result);
 }
 
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
-    const resource = body.resource;
+    const resolved = resolveSheet(body.resource, SpreadsheetApp.getActiveSpreadsheet());
     const payload = body.payload;
-    const sheetName = resolveSheetName(resource);
-    if (!sheetName) return createResponse({ error: 'Resource not found' });
+    if (!resolved) return createResponse({ error: 'Resource not found' });
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let sheet = ss.getSheetByName(sheetName);
-    if (!sheet) {
-      sheet = ss.insertSheet(sheetName);
-      sheet.appendRow(['data_json']);
-    }
-
-    sheet.getRange(2, 1).setValue(JSON.stringify(payload));
-    return createResponse({ success: true, resource: resource });
+    resolved.sheet.getRange(2, 1).setValue(JSON.stringify(payload));
+    return createResponse({ success: true, resource: resolved.resource });
   } catch (err) {
     return createResponse({ error: err.toString() });
   }

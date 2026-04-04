@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Youth Montreal Church Finder</title>
+    <title>Youth Montreal Host Finder</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link
       rel="stylesheet"
@@ -31,7 +31,7 @@
       <div class="header-menu-container">
         <nav class="header-nav" aria-label="Main navigation">
           <a href="#about-us" data-i18n="navAbout">About us</a>
-          <a href="#find-church" data-i18n="navFind">Find a church</a>
+          <a href="#find-host" data-i18n="navFind">Find a church</a>
           <a href="#contact-us" data-i18n="navContact">Contact us</a>
         </nav>
 
@@ -65,8 +65,8 @@
       <section id="my-host" class="section-card hidden">
         <div class="section-heading-row">
           <div>
-            <p class="eyebrow" data-i18n="myChurchEyebrow">Private workspace</p>
-            <h2 data-i18n="myChurchTitle">My church</h2>
+            <p class="eyebrow" data-i18n="myHostEyebrow">Private workspace</p>
+            <h2 data-i18n="myHostTitle">My church</h2>
           </div>
           <p id="workspace-status" class="help-text"></p>
         </div>
@@ -77,7 +77,7 @@
             <button type="button" class="segment-btn" data-workspace-view="events" data-i18n="eventsMode">Events</button>
           </div>
           <div class="segmented-control workspace-tabs admin-only hidden" id="moderation-tabs">
-            <button type="button" class="segment-btn active" data-moderation-view="suggestions" data-i18n="suggestionsTab">Suggestions</button>
+            <button type="button" class="segment-btn active" data-moderation-view="reports" data-i18n="reportsTab">Reports</button>
             <button type="button" class="segment-btn" data-moderation-view="hostRequests" data-i18n="hostRequestsTab">Host requests</button>
           </div>
         </div>
@@ -86,11 +86,11 @@
           <section class="workspace-column">
             <div id="workspace-places-view">
               <div class="view-section-toolbar">
-                <button id="toggle-host-search" type="button" class="secondary icon-mobile-btn" aria-label="Search churches">🔎<span class="icon-label toggle-search-label" data-i18n="searchChurches">Search churches</span></button>
-                <button id="add-host" type="button" class="secondary admin-only hidden icon-mobile-btn add-icon-btn" aria-label="Add church" data-i18n="addChurch">Add church</button>
+                <button id="toggle-host-search" type="button" class="secondary icon-mobile-btn" aria-label="Search churches">🔎<span class="icon-label toggle-search-label" data-i18n="searchHosts">Search churches</span></button>
+                <button id="add-host" type="button" class="secondary admin-only hidden icon-mobile-btn add-icon-btn" aria-label="Add church" data-i18n="addHost">Add church</button>
               </div>
               <label id="host-search-wrap" class="collapsed-search hidden">
-                <span data-i18n="searchChurches">Search churches</span>
+                <span data-i18n="searchHosts">Search churches</span>
                 <input id="host-manager-search" placeholder="Name, address, language" />
               </label>
               <div id="host-manager-list" class="stack-list"></div>
@@ -117,22 +117,23 @@
             <section id="admin-panel" class="admin-panel-card hidden">
               <div class="editor-shell">
                 <div class="editor-form-column">
-                  <h3 id="admin-title" data-i18n="addUpdateChurch">Add / update church</h3>
+                  <h3 id="admin-title" data-i18n="addUpdateHost">Add / update church</h3>
                   <p id="admin-status" class="help-text"></p>
                   <p id="editor-context" class="editor-context help-text hidden"></p>
                   <p class="help-text" data-i18n="editingFocusHint">While editing, other sections are dimmed so you can focus on this church.</p>
                   <form id="host-form">
                     <input type="hidden" name="hostId" />
                     <input type="hidden" name="eventIndex" />
+                    <datalist id="saved-hosts"></datalist>
                     <div class="event-host-fields hidden">
                       <label>
-                        <span data-i18n="churchName">Church name</span>
+                        <span data-i18n="hostName">Church name</span>
                         <input name="hostName" list="saved-hosts" autocomplete="organization" />
                       </label>
                       <p id="event-host-summary" class="help-text"></p>
                     </div>
-                    <div class="church-fields admin-fields-grid">
-                      <label class="field-name"><span data-i18n="churchName">Church name</span><input name="name" required /></label>
+                    <div class="host-fields admin-fields-grid">
+                      <label class="field-name"><span data-i18n="hostName">Church name</span><input name="name" required /></label>
                       <label class="field-address">
                         <span data-i18n="address">Address</span>
                         <input id="host-address-input" name="address" list="montreal-addresses" autocomplete="street-address" required />
@@ -173,19 +174,19 @@
                 <div class="admin-actions editor-footer">
                   <button id="delete-editing-item" type="button" class="secondary danger hidden icon-mobile-btn delete-icon-btn" aria-label="Delete" data-i18n="delete">Delete</button>
                   <button id="cancel-edit" type="button" class="secondary" data-i18n="cancelEdit">Cancel edit</button>
-                  <button id="save-edit" type="submit" form="host-form" class="icon-mobile-btn add-icon-btn" aria-label="Save church" data-i18n="saveChurch">Save church</button>
+                  <button id="save-edit" type="submit" form="host-form" class="icon-mobile-btn add-icon-btn" aria-label="Save church" data-i18n="saveHost">Save church</button>
                 </div>
               </div>
             </section>
 
             <section id="workspace-moderation" class="admin-panel-card hidden">
-              <h3 data-i18n="reviewSuggestionsTitle">Review suggestions</h3>
+              <h3 data-i18n="reviewReportsTitle">Review reports</h3>
               <div class="segmented-control workspace-tabs workspace-tabs-mobile admin-only hidden">
-                <button type="button" class="segment-btn active" data-moderation-view="suggestions" data-i18n="suggestionsTab">Suggestions</button>
+                <button type="button" class="segment-btn active" data-moderation-view="reports" data-i18n="reportsTab">Reports</button>
                 <button type="button" class="segment-btn" data-moderation-view="hostRequests" data-i18n="hostRequestsTab">Host requests</button>
               </div>
-              <div id="suggestions-queue" class="stack-list"></div>
-              <div id="host-queue" class="stack-list hidden"></div>
+              <div id="reports-queue" class="stack-list"></div>
+              <div id="host-requests-queue" class="stack-list hidden"></div>
             </section>
 
           </section>
@@ -212,8 +213,8 @@
       <section id="find-host" class="section-card search-background">
         <div class="section-heading-row">
           <div>
-            <p class="eyebrow" data-i18n="findChurchEyebrow">Discover</p>
-            <h2 data-i18n="findChurch">Find a church near you</h2>
+            <p class="eyebrow" data-i18n="findHostEyebrow">Discover</p>
+            <h2 data-i18n="findHost">Find a church near you</h2>
           </div>
         </div>
 
@@ -286,7 +287,7 @@
             <section id="map" aria-label="Community churches map in Montreal"></section>
           </div>
           <aside class="details-sidecard">
-            <h3 data-i18n="churchDetails">Church details</h3>
+            <h3 data-i18n="hostDetails">Church details</h3>
             <p id="empty-state" data-i18n="emptyState">Click a marker on the map to view details.</p>
             <div id="details" class="hidden"></div>
           </aside>
@@ -363,7 +364,7 @@
           <section id="title-request-panel" class="hidden">
             <form id="title-request-form">
               <label><span data-i18n="fullName">Full name</span><input name="fullName" required /></label>
-              <label><span data-i18n="churchName">Church name</span><input name="churchName" required /></label>
+              <label><span data-i18n="hostName">Church name</span><input name="hostName" required /></label>
               <label><span data-i18n="positionTitle">Position</span><input name="position" required /></label>
               <label><span data-i18n="phoneNumber">Phone number</span><input name="phone" required /></label>
               <label><span data-i18n="message">Message</span><textarea name="message" rows="5" required></textarea></label>

@@ -32,8 +32,8 @@ export function attachFinderController({ state, map, elements, renderMarkers, re
       elements.finderForm.elements.address.value = match.shortAddress || match.fullAddress;
     }
 
-    const matches = state.churches.filter((church) => haversineKm(point.lat, point.lng, Number(church.lat), Number(church.lng)) <= radiusKm);
-    state.filteredIds = new Set(matches.map((church) => church.id));
+    const matches = state.hosts.filter((host) => haversineKm(point.lat, point.lng, Number(host.lat), Number(host.lng)) <= radiusKm);
+    state.filteredIds = new Set(matches.map((host) => host.id));
     renderMarkers();
 
     if (!matches.length) {
@@ -42,18 +42,18 @@ export function attachFinderController({ state, map, elements, renderMarkers, re
       return [];
     }
 
-    const visibleMatches = matches.filter((church) => !state.mapFilteredIds || state.mapFilteredIds.has(church.id));
-    elements.finderStatus.textContent = `${visibleMatches.length} ${t(state, 'searchResultCount')}`;
-    const bounds = L.latLngBounds(matches.map((church) => [Number(church.lat), Number(church.lng)]));
+    const visibleMatches = matches.filter((host) => !state.mapFilteredIds || state.mapFilteredIds.has(host.id));
+    elements.finderStatus.textContent = `${visibleMatches.length} ${t(state, 'hostsFoundNearAddress')}`;
+    const bounds = L.latLngBounds(matches.map((host) => [Number(host.lat), Number(host.lng)]));
     map.fitBounds(bounds.pad(0.25));
 
     const selected = visibleMatches[0] || matches[0];
     if (selected) {
-      state.selectedChurchId = selected.id;
+      state.selectedHostId = selected.id;
       renderHostDetails(selected);
     }
 
-    document.querySelector('#find-church')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.querySelector('#find-host')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return matches;
   };
 

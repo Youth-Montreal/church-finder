@@ -6,6 +6,10 @@ const HOST_REQUESTS_KEY = 'youth-montreal-host-requests';
 const AUDIT_LOG_KEY = 'youth-montreal-audit-log';
 const PENDING_SYNC_KEY = 'youth-montreal-pending-sync';
 const SYNC_URL_KEY = 'youth-montreal-sheets-url';
+const LEGACY_LOCAL_KEYS = {
+  [REPORTS_KEY]: ['youth-montreal-suggestions'],
+  [HOST_REQUESTS_KEY]: ['youth-montreal-title-requests']
+};
 const syncListeners = new Set();
 const REMOTE_TIMEOUT_MS = 8000;
 const REMOTE_COOLDOWN_MS = 30000;
@@ -127,8 +131,9 @@ async function remotePost(resource, payload) {
 }
 
 function readLocalList(key) {
+  const saved = localStorage.getItem(key) || migrateLegacyLocalList(key);
   try {
-    return JSON.parse(localStorage.getItem(key) || '[]');
+    return JSON.parse(saved || '[]');
   } catch {
     return [];
   }
@@ -138,11 +143,27 @@ function writeLocalList(key, list) {
   localStorage.setItem(key, JSON.stringify(list));
 }
 
+function migrateLegacyLocalList(key) {
+  const legacyKeys = LEGACY_LOCAL_KEYS[key] || [];
+  for (const legacyKey of legacyKeys) {
+    const saved = localStorage.getItem(legacyKey);
+    if (!saved) continue;
+    localStorage.setItem(key, saved);
+    localStorage.removeItem(legacyKey);
+    return saved;
+  }
+  return '';
+}
+
 function normalizeEntry(entry) {
+  const canonicalEntry = {
+    ...entry,
+    hostName: entry?.hostName || entry?.churchName || ''
+  };
   return {
     status: 'pending',
     createdAt: new Date().toISOString(),
-    ...entry
+    ...canonicalEntry
   };
 }
 
