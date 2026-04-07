@@ -238,4 +238,29 @@ Use this `.aab` in Google Play Console (recommended flow: Internal testing track
 - [ ] `gradle bundleRelease` succeeds
 - [ ] Upload `.aab` to Internal testing in Play Console
 - [ ] Complete Play listing/content/compliance forms
+
+## Privacy Policy for Google Play
+
+This repository now includes:
+
+- `PRIVACY_POLICY.md` (editable source text)
+- `privacy-policy.html` (ready-to-publish static page)
+
+### Recommended publish flow (GitHub Pages)
+
+1. Push this repository to GitHub.
+2. In GitHub: **Settings → Pages**.
+3. Under **Build and deployment**, choose:
+   - **Source:** Deploy from a branch
+   - **Branch:** `main` (or your default branch), folder `/ (root)`
+4. Save and wait for deployment.
+5. Your policy URL will be similar to:
+   - `https://<username>.github.io/<repo>/privacy-policy.html`
+6. Open the URL in an incognito window to verify it is publicly accessible.
+7. Paste that URL in Google Play Console (App content → Privacy policy).
+
+### Before publishing
+
+- Replace placeholder contact email/address in both files.
+- Keep Play Console Data Safety answers aligned with policy content (location + calendar permissions and purposes).
 - [ ] Promote tested release to Production
