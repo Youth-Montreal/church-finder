@@ -1,7 +1,7 @@
 import { geocodeAddress, reverseGeocode, searchMontrealAddresses } from '../services/geocoding.js';
 import { appendAuditLog, saveHosts, updateHostRequestStatus, updateReportStatus } from '../services/repository.js';
 import { t } from '../i18n.js';
-import { ADM_PASSCODE } from '../config.js';
+import { login, logout, getSession, activateHostByEmail } from '../services/auth.js';
 import { normalizeAddress, shortenAddress } from '../utils/address.js';
 import { dedupeHosts, findDuplicateHost } from '../utils/hostDedup.js';
 
@@ -400,6 +400,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
   elements.toggleHost.addEventListener('click', () => {
     if (state.isHostMode) {
+      logout();
       state.isHostMode = false;
       state.activeHostId = null;
       setWorkspaceVisibility();
@@ -409,16 +410,17 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       return;
     }
 
-    const code = prompt(t(state, 'enterHostCode'));
-    if (!code) return;
-    const host = state.hosts.find((item) => item.hostPasscode === code.trim());
-    if (!host) {
-      elements.workspaceStatus.textContent = t(state, 'hostCodeNotFound');
+    const email = prompt(t(state, 'enterEmail'));
+    const password = prompt(t(state, 'enterPassword'));
+    if (!email || !password) return;
+    const result = login({ email, password, role: 'host' });
+    if (!result.ok) {
+      elements.workspaceStatus.textContent = t(state, result.error === 'pending' ? 'hostAccountPending' : 'loginFailed');
       return;
     }
-
+    const host = state.hosts.find((item) => String(item.contactEmail || '').toLowerCase() === String(email).toLowerCase());
     state.isHostMode = true;
-    state.activeHostId = host.id;
+    state.activeHostId = host?.id || null;
     state.isAdminMode = false;
     setWorkspaceVisibility();
     renderHostManager();
@@ -427,21 +429,28 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   });
 
   elements.toggleAdmin.addEventListener('click', () => {
-    if (!state.isAdminMode) {
-      const code = prompt(t(state, 'enterAdmCode'));
-      if (code !== ADM_PASSCODE) {
-        elements.workspaceStatus.textContent = t(state, 'admCodeNotFound');
-        return;
-      }
-    }
-
-    state.isAdminMode = !state.isAdminMode;
     if (state.isAdminMode) {
-      state.isHostMode = false;
-      state.activeHostId = null;
-      elements.workspaceStatus.textContent = t(state, 'adminWorkspaceActive');
+      logout();
+      state.isAdminMode = false;
+      setWorkspaceVisibility();
+      renderHostManager();
+      renderEventManager();
+      renderModeration();
+      return;
+    }
+    const email = prompt(t(state, 'enterEmail'));
+    const password = prompt(t(state, 'enterPassword'));
+    if (!email || !password) return;
+    const result = login({ email, password, role: 'admin' });
+    if (!result.ok) {
+      elements.workspaceStatus.textContent = t(state, 'loginFailed');
+      return;
     }
 
+    state.isAdminMode = true;
+    state.isHostMode = false;
+    state.activeHostId = null;
+    elements.workspaceStatus.textContent = t(state, 'adminWorkspaceActive');
     setWorkspaceVisibility();
     renderHostManager();
     renderEventManager();

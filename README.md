@@ -103,6 +103,11 @@ Without those canonical resources, reads/writes can fail for host data and leave
 
 Note: backend GET now auto-creates missing tabs with `data_json` header and returns an empty list, so a missing `reports`/`hostRequests` tab no longer blocks loading `hosts`.
 
+Backend normalization hardening now also:
+- accepts resource aliases case-insensitively (for example `HostRequests`, `title requests`, `churches`),
+- tries legacy sheet-name variants (`hostRequest`, `hostrequests`, `titleRequests`, etc.) before creating a new canonical tab,
+- safely handles blank/corrupted JSON payload rows by returning `[]` instead of throwing parse errors.
+
 Migration tip (required when moving from old builds):
 - Google Sheets: preferred tab names are `hosts`, `reports`, and `hostRequests`.
 - Browser local data: the app will migrate `youth-montreal-churches` automatically on next load.
@@ -112,6 +117,15 @@ Migration tip (required when moving from old builds):
 
 For POST writes, this project now sends a **simple request body** (no custom JSON header) to avoid browser CORS preflight failures against Apps Script web apps.  
 If you reintroduce custom `Content-Type: application/json`, some deployments may stop accepting browser writes.
+
+### Authentication transition note
+
+- Host/ADM passcode prompts are replaced by email/password login prompts.
+- ADM login is restricted to an allowlist of ADM emails in `src/services/auth.js`.
+- Host signup now creates a host account and automatically submits a host request.
+- Host account activation happens only after ADM approval of the host request.
+- Rejected host emails are blocked from re-requesting for 30 days.
+- Current implementation is client-side/localStorage based; production rollout should move credential checks to a dedicated backend identity provider.
 
 ### Startup sync deadlock guard
 

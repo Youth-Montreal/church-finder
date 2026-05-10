@@ -6,29 +6,41 @@
 const RESOURCE_CONFIG = {
   hosts: {
     sheetName: 'hosts',
-    resourceAliases: ['churches'],
+    resourceAliases: ['host', 'church', 'churches'],
     sheetAliases: ['churches']
   },
   reports: {
     sheetName: 'reports',
-    resourceAliases: ['suggestion', 'suggestions'],
+    resourceAliases: ['report', 'suggestion', 'suggestions'],
     sheetAliases: ['suggestions']
   },
   hostRequests: {
     sheetName: 'hostRequests',
-    resourceAliases: ['hostRequest', 'titleRequest', 'titleRequests'],
-    sheetAliases: ['hostRequest', 'titleRequest', 'titleRequests']
+    resourceAliases: ['hostrequest', 'hostrequests', 'title request', 'title requests', 'titlerequest', 'titlerequests'],
+    sheetAliases: ['hostrequest', 'hostrequests', 'title request', 'title requests', 'titlerequest', 'titlerequests']
   }
 };
 
 function canonicalizeResource(resource) {
-  const resourceName = String(resource || '').trim();
+  const resourceName = String(resource || '').trim().toLowerCase();
   if (!resourceName) return '';
-  if (RESOURCE_CONFIG[resourceName]) return resourceName;
+  const directMatch = Object.keys(RESOURCE_CONFIG).find((key) => key.toLowerCase() === resourceName);
+  if (directMatch) return directMatch;
   const match = Object.keys(RESOURCE_CONFIG).find((key) =>
-    RESOURCE_CONFIG[key].resourceAliases.includes(resourceName)
+    RESOURCE_CONFIG[key].resourceAliases.some((alias) => alias.toLowerCase() === resourceName)
   );
   return match || '';
+}
+
+function parseSheetPayload(sheet) {
+  const raw = String(sheet.getRange(2, 1).getValue() || '').trim();
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
 }
 
 function ensureJsonSheet(sheet) {
@@ -50,7 +62,8 @@ function resolveSheet(resource, spreadsheet) {
   let sheet = preferredSheet;
 
   if (!sheet) {
-    sheet = config.sheetAliases
+    sheet = [config.sheetName, ...config.sheetAliases]
+      .flatMap((name) => [name, name.toLowerCase(), name.toUpperCase(), toCamelCase(name)])
       .map((name) => spreadsheet.getSheetByName(name))
       .find(Boolean) || null;
   }
@@ -80,8 +93,7 @@ function doGet(e) {
   const resolved = resolveSheet(e.parameter.resource, SpreadsheetApp.getActiveSpreadsheet());
   if (!resolved) return createResponse({ error: 'Resource not found' });
 
-  const values = resolved.sheet.getDataRange().getValues();
-  const data = values.length > 1 ? JSON.parse(values[1][0]) : [];
+  const data = parseSheetPayload(resolved.sheet);
 
   const result = {};
   result[resolved.resource] = data;
@@ -105,4 +117,10 @@ function doPost(e) {
 function createResponse(data) {
   return ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function toCamelCase(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return '';
+  return normalized.replace(/[-_\s]+(.)/g, (_, group) => group.toUpperCase());
 }
