@@ -1,5 +1,6 @@
 import { LANGUAGE_KEY, STORAGE_KEY } from './config.js';
 import { appendAuditLog, getConfiguredSyncUrl, getSyncState, loadAuditLog, loadHosts, loadHostRequests, loadReports, retryPendingSync, saveHosts, setConfiguredSyncUrl, subscribeSyncState, submitHostRequest, submitReport } from './services/repository.js';
+import { registerHostAccount } from './services/auth.js';
 import { createMap, renderMarkers, resetMapView } from './ui/mapView.js';
 import { renderHostDetails } from './ui/detailsView.js';
 import { attachAdminController } from './controllers/adminController.js';
@@ -464,6 +465,15 @@ function setupPublicForms() {
   elements.titleRequestForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(elements.titleRequestForm).entries());
+    const registration = registerHostAccount(data, state.hostRequests);
+    if (!registration.ok) {
+      elements.titleRequestStatus.textContent = t(state, registration.error === 'blocked'
+        ? 'hostRequestRejectedRecently'
+        : registration.error === 'pending'
+          ? 'hostRequestAlreadyPending'
+          : 'hostRequestCreateFailed');
+      return;
+    }
     await submitHostRequest({ id: crypto.randomUUID(), ...data, createdAt: new Date().toISOString() });
     state.hostRequests = await loadHostRequests();
     state.auditLog = await appendAuditLog({ action: 'title_request_submitted', label: data.hostName || 'host request' });
