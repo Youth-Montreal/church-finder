@@ -5,12 +5,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="41174631-d8b1-4a17-999e-397d79071a6a" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/app/src/main/assets/assets/icons/report.svg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../AGENTS.md" beforeDir="false" afterPath="$PROJECT_DIR$/../AGENTS.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/release/app-release.aab" beforeDir="false" afterPath="$PROJECT_DIR$/app/release/app-release.aab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/assets/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/assets/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/assets/src/controllers/adminController.js" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/src/controllers/adminController.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/assets/src/i18n.js" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/src/i18n.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/assets/src/main.js" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/src/main.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/assets/src/services/repository.js" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/src/services/repository.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/assets/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/styles.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle.properties" beforeDir="false" afterPath="$PROJECT_DIR$/gradle.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../assets/icons/report.svg" beforeDir="false" afterPath="$PROJECT_DIR$/../assets/icons/report.svg" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -20,7 +26,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[PhysicalDevice::serial=S8CIPVJNZL7DGY75]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$">
       <ProjectState />
@@ -66,8 +72,9 @@
   "keyToString": {
     "Android App.New Run Config.executor": "Run",
     "Android App.app.executor": "Run",
+    "Android App.upload.executor": "Run",
     "BundleExportedModule": "YouthMontrealAndroid.app",
-    "ExportBundle.BundlePathForYouthMontrealAndroid.app": "C:\\Users\\Danie\\OneDrive\\Documents\\GitHub\\youth-montreal\\android\\app",
+    "ExportBundle.BundlePathForYouthMontrealAndroid.app": "C:\\Users\\Danie\\OneDrive\\Documents\\GitHub\\church-finder\\android\\app",
     "Gradle.android.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -78,9 +85,10 @@
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
     "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "C:/Users/Danie/OneDrive/Documents/GitHub/church-finder/android",
-    "settings.editor.selected.configurable": "templates.modelproviders.configurable"
+    "settings.editor.selected.configurable": "com.android.studio.ml.templates"
   },
   "keyToStringList": {
     "ExportApk.BuildVariants": [
@@ -88,8 +96,8 @@
     ]
   }
 }]]></component>
-  <component name="RunManager" selected="Android App.New Run Config">
-    <configuration name="New Run Config" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
+  <component name="RunManager" selected="Android App.upload">
+    <configuration name="upload" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
       <module name="YouthMontrealAndroid.app" />
       <option name="ANDROID_RUN_CONFIGURATION_SCHEMA_VERSION" value="1" />
       <option name="DEPLOY" value="true" />
@@ -103,7 +111,7 @@
       <option name="CLEAR_APP_STORAGE" value="false" />
       <option name="DYNAMIC_FEATURES_DISABLED_LIST" value="" />
       <option name="ACTIVITY_EXTRA_FLAGS" value="" />
-      <option name="MODE" value="specific_activity" />
+      <option name="MODE" value="default_activity" />
       <option name="RESTORE_ENABLED" value="false" />
       <option name="RESTORE_FILE" value="" />
       <option name="RESTORE_FRESH_INSTALL_ONLY" value="false" />
@@ -154,7 +162,7 @@
       </Profilers>
       <option name="DEEP_LINK" value="" />
       <option name="ACTIVITY" value="" />
-      <option name="ACTIVITY_CLASS" value="org.youthmtl.app.MainActivity" />
+      <option name="ACTIVITY_CLASS" value="" />
       <option name="SEARCH_ACTIVITY_IN_GLOBAL_SCOPE" value="false" />
       <option name="SKIP_ACTIVITY_VALIDATION" value="false" />
       <method v="2">
@@ -166,7 +174,7 @@
         <option name="executionName" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="externalSystemIdString" value="GRADLE" />
-        <option name="scriptParameters" />
+        <option name="scriptParameters" value="" />
         <option name="taskDescriptions">
           <list />
         </option>
@@ -184,6 +192,10 @@
       <GradleCoverageDisabled>false</GradleCoverageDisabled>
       <method v="2" />
     </configuration>
+    <list>
+      <item itemvalue="Android App.upload" />
+      <item itemvalue="Gradle.android" />
+    </list>
     <recent_temporary>
       <list>
         <item itemvalue="Gradle.android" />
@@ -205,12 +217,12 @@
       <map>
         <entry key="org.youthmtl.app">
           <value>
-            <CheckInfo lastCheckTimestamp="1775219656282" />
+            <CheckInfo lastCheckTimestamp="1775405307947" />
           </value>
         </entry>
         <entry key="org.youthmtl.app.test">
           <value>
-            <CheckInfo lastCheckTimestamp="1775219656269" />
+            <CheckInfo lastCheckTimestamp="1775405307946" />
           </value>
         </entry>
       </map>

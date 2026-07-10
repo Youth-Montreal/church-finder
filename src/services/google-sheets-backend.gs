@@ -4,25 +4,101 @@
  */
 
 const RESOURCE_CONFIG = {
-  hosts: { sheetName: 'host', resourceAliases: ['host', 'churches'], sheetAliases: ['hosts', 'churches'] },
-  reports: { sheetName: 'report', resourceAliases: ['report', 'suggestion', 'suggestions'], sheetAliases: ['reports', 'suggestions'] },
-  hostRequests: { sheetName: 'hostRequest', resourceAliases: ['hostRequest', 'titleRequest', 'titleRequests'], sheetAliases: ['hostRequests', 'titleRequests'] },
-  accounts: { sheetName: 'account', resourceAliases: ['account'], sheetAliases: ['accounts'] },
-  hostMemberships: { sheetName: 'hostMembership', resourceAliases: ['hostMembership'], sheetAliases: ['hostMemberships'] },
-  liveEvents: { sheetName: 'liveEvent', resourceAliases: ['liveEvent'], sheetAliases: ['liveEvents'] },
-  liveEventParticipants: { sheetName: 'liveEventParticipant', resourceAliases: ['liveEventParticipant'], sheetAliases: ['liveEventParticipants'] }
+  hosts: {
+    sheetName: 'hosts',
+    resourceAliases: ['host', 'church', 'churches'],
+    sheetAliases: ['churches']
+  },
+  reports: {
+    sheetName: 'reports',
+    resourceAliases: ['report', 'suggestion', 'suggestions'],
+    sheetAliases: ['suggestions']
+  },
+  hostRequests: {
+    sheetName: 'hostRequests',
+    resourceAliases: ['hostrequest', 'hostrequests', 'title request', 'title requests', 'titlerequest', 'titlerequests'],
+    sheetAliases: ['hostrequest', 'hostrequests', 'title request', 'title requests', 'titlerequest', 'titlerequests']
+  }
 };
 
-const ADM_ALLOWLIST = ['developer@youthmontreal.org', 'founder@youthmontreal.org', 'cofounder@youthmontreal.org'];
+function canonicalizeResource(resource) {
+  const resourceName = String(resource || '').trim().toLowerCase();
+  if (!resourceName) return '';
+  const directMatch = Object.keys(RESOURCE_CONFIG).find((key) => key.toLowerCase() === resourceName);
+  if (directMatch) return directMatch;
+  const match = Object.keys(RESOURCE_CONFIG).find((key) =>
+    RESOURCE_CONFIG[key].resourceAliases.some((alias) => alias.toLowerCase() === resourceName)
+  );
+  return match || '';
+}
 
-function canonicalizeResource(resource) { const name = String(resource || '').trim(); if (!name) return ''; if (RESOURCE_CONFIG[name]) return name; return Object.keys(RESOURCE_CONFIG).find((k) => RESOURCE_CONFIG[k].resourceAliases.includes(name)) || ''; }
-function ensureJsonSheet(sheet) { if (!sheet) return; if (sheet.getLastRow() === 0) sheet.appendRow(['data_json']); const header = String(sheet.getRange(1, 1).getValue() || '').trim(); if (!header) sheet.getRange(1, 1).setValue('data_json'); }
-function resolveSheet(resource, spreadsheet) { const canonical = canonicalizeResource(resource); if (!canonical) return null; const config = RESOURCE_CONFIG[canonical]; const preferred = spreadsheet.getSheetByName(config.sheetName); let sheet = preferred || config.sheetAliases.map((n) => spreadsheet.getSheetByName(n)).find(Boolean) || null; if (!sheet) sheet = spreadsheet.insertSheet(config.sheetName); else if (sheet.getName() !== config.sheetName && !preferred) sheet.setName(config.sheetName); ensureJsonSheet(sheet); return { resource: canonical, sheet }; }
-function setup() { const ss = SpreadsheetApp.getActiveSpreadsheet(); Object.keys(RESOURCE_CONFIG).forEach((resource) => { const resolved = resolveSheet(resource, ss); if (resolved) ensureJsonSheet(resolved.sheet); }); }
-function readResourceList(resource) { const resolved = resolveSheet(resource, SpreadsheetApp.getActiveSpreadsheet()); if (!resolved) return []; const values = resolved.sheet.getDataRange().getValues(); return values.length > 1 && values[1][0] ? JSON.parse(values[1][0]) : []; }
-function writeResourceList(resource, payload) { const resolved = resolveSheet(resource, SpreadsheetApp.getActiveSpreadsheet()); if (!resolved) return false; resolved.sheet.getRange(2, 1).setValue(JSON.stringify(payload)); return true; }
+function parseSheetPayload(sheet) {
+  const raw = String(sheet.getRange(2, 1).getValue() || '').trim();
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
 
-function doGet(e) { const resolved = resolveSheet(e.parameter.resource, SpreadsheetApp.getActiveSpreadsheet()); if (!resolved) return createResponse({ error: 'Resource not found' }); const data = readResourceList(resolved.resource); const result = {}; result[resolved.resource] = data; return createResponse(result); }
+function ensureJsonSheet(sheet) {
+  if (!sheet) return;
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['data_json']);
+    return;
+  }
+  const header = String(sheet.getRange(1, 1).getValue() || '').trim();
+  if (!header) sheet.getRange(1, 1).setValue('data_json');
+}
+
+function resolveSheet(resource, spreadsheet) {
+  const canonicalResource = canonicalizeResource(resource);
+  if (!canonicalResource) return null;
+
+  const config = RESOURCE_CONFIG[canonicalResource];
+  const preferredSheet = spreadsheet.getSheetByName(config.sheetName);
+  let sheet = preferredSheet;
+
+  if (!sheet) {
+    sheet = [config.sheetName, ...config.sheetAliases]
+      .flatMap((name) => [name, name.toLowerCase(), name.toUpperCase(), toCamelCase(name)])
+      .map((name) => spreadsheet.getSheetByName(name))
+      .find(Boolean) || null;
+  }
+
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(config.sheetName);
+  } else if (sheet.getName() !== config.sheetName && !preferredSheet) {
+    sheet.setName(config.sheetName);
+  }
+
+  ensureJsonSheet(sheet);
+  return { resource: canonicalResource, sheet };
+}
+
+/**
+ * Run this once in Apps Script editor to initialize sheets.
+ */
+function setup() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  Object.keys(RESOURCE_CONFIG).forEach((resource) => {
+    const resolved = resolveSheet(resource, ss);
+    if (resolved) ensureJsonSheet(resolved.sheet);
+  });
+}
+
+function doGet(e) {
+  const resolved = resolveSheet(e.parameter.resource, SpreadsheetApp.getActiveSpreadsheet());
+  if (!resolved) return createResponse({ error: 'Resource not found' });
+
+  const data = parseSheetPayload(resolved.sheet);
+
+  const result = {};
+  result[resolved.resource] = data;
+  return createResponse(result);
+}
 
 function doPost(e) {
   try {
@@ -63,4 +139,8 @@ function handleExchangeHostAccessCode(body) {
   return { valid: true, token, accountId: membership.accountId, hostMembership: membership };
 }
 
-function createResponse(data) { return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON); }
+function toCamelCase(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return '';
+  return normalized.replace(/[-_\s]+(.)/g, (_, group) => group.toUpperCase());
+}
