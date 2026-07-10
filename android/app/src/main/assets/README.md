@@ -103,6 +103,11 @@ Without those canonical resources, reads/writes can fail for host data and leave
 
 Note: backend GET now auto-creates missing tabs with `data_json` header and returns an empty list, so a missing `reports`/`hostRequests` tab no longer blocks loading `hosts`.
 
+Backend normalization hardening now also:
+- accepts resource aliases case-insensitively (for example `HostRequests`, `title requests`, `churches`),
+- tries legacy sheet-name variants (`hostRequest`, `hostrequests`, `titleRequests`, etc.) before creating a new canonical tab,
+- safely handles blank/corrupted JSON payload rows by returning `[]` instead of throwing parse errors.
+
 Migration tip (required when moving from old builds):
 - Google Sheets: preferred tab names are `hosts`, `reports`, and `hostRequests`.
 - Browser local data: the app will migrate `youth-montreal-churches` automatically on next load.
@@ -113,10 +118,26 @@ Migration tip (required when moving from old builds):
 For POST writes, this project now sends a **simple request body** (no custom JSON header) to avoid browser CORS preflight failures against Apps Script web apps.  
 If you reintroduce custom `Content-Type: application/json`, some deployments may stop accepting browser writes.
 
+### Authentication transition note
+
+- Host/ADM passcode prompts are replaced by email/password login prompts.
+- ADM login is restricted to an allowlist of ADM emails in `src/services/auth.js`.
+- Host signup now creates a host account and automatically submits a host request.
+- Host account activation happens only after ADM approval of the host request.
+- Rejected host emails are blocked from re-requesting for 30 days.
+- Current implementation is client-side/localStorage based; production rollout should move credential checks to a dedicated backend identity provider.
+
 ### Startup sync deadlock guard
 
 Initialization now uses a bounded retry window for startup sync and always clears the loading overlay in a `finally` block.  
 If cloud calls stall/fail, the UI falls back to available local data instead of staying blocked behind the loader.
+
+### Duplicate-host protection (ADM + host workspace)
+
+- Host saves now run a duplicate analysis before persist.
+- Duplicate identity is detected primarily from normalized address (accent-insensitive + compact address normalization), with a coordinate/name fallback for near-identical pins.
+- If a duplicate is detected, save is blocked and the UI points to the existing host entry.
+- Startup and live-sync host loads are deduplicated automatically, and cleaned data is persisted back to storage/cloud to avoid repeat duplicates across devices.
 
 ### Sync indicator in UI
 
@@ -238,4 +259,29 @@ Use this `.aab` in Google Play Console (recommended flow: Internal testing track
 - [ ] `gradle bundleRelease` succeeds
 - [ ] Upload `.aab` to Internal testing in Play Console
 - [ ] Complete Play listing/content/compliance forms
+
+## Privacy Policy for Google Play
+
+This repository now includes:
+
+- `PRIVACY_POLICY.md` (editable source text)
+- `privacy-policy.html` (ready-to-publish static page)
+
+### Recommended publish flow (GitHub Pages)
+
+1. Push this repository to GitHub.
+2. In GitHub: **Settings → Pages**.
+3. Under **Build and deployment**, choose:
+   - **Source:** Deploy from a branch
+   - **Branch:** `main` (or your default branch), folder `/ (root)`
+4. Save and wait for deployment.
+5. Your policy URL will be similar to:
+   - `https://<username>.github.io/<repo>/privacy-policy.html`
+6. Open the URL in an incognito window to verify it is publicly accessible.
+7. Paste that URL in Google Play Console (App content → Privacy policy).
+
+### Before publishing
+
+- Replace placeholder contact email/address in both files.
+- Keep Play Console Data Safety answers aligned with policy content (location + calendar permissions and purposes).
 - [ ] Promote tested release to Production
