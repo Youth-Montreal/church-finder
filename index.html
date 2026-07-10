@@ -366,7 +366,13 @@
               <label><span data-i18n="fullName">Full name</span><input name="fullName" required /></label>
               <label><span data-i18n="email">Email</span><input name="email" type="email" required /></label>
               <label><span data-i18n="password">Password</span><input name="password" type="password" minlength="10" required /></label>
+              <fieldset class="stack-list">
+                <legend data-i18n="hostRequestPath">Host request path</legend>
+                <label><input type="radio" name="type" value="new_host" checked /> <span data-i18n="newHostRequest">Register a new host</span></label>
+                <label><input type="radio" name="type" value="join_existing_host" /> <span data-i18n="joinExistingHost">Join an existing host</span></label>
+              </fieldset>
               <label><span data-i18n="hostName">Church name</span><input name="hostName" required /></label>
+              <label id="target-host-wrap" class="hidden"><span data-i18n="targetHostSearch">Existing host name or address</span><input name="targetHostSearch" list="title-request-hosts" autocomplete="organization" /><datalist id="title-request-hosts"></datalist><input type="hidden" name="targetHostId" /></label>
               <label><span data-i18n="positionTitle">Position</span><input name="position" required /></label>
               <label><span data-i18n="phoneNumber">Phone number</span><input name="phone" required /></label>
               <label><span data-i18n="message">Message</span><textarea name="message" rows="5" required></textarea></label>

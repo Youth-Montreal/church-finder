@@ -3,12 +3,14 @@ import { loadHosts as loadLocalHosts, saveHosts as saveLocalHosts } from './stor
 
 const REPORTS_KEY = 'youth-montreal-reports';
 const HOST_REQUESTS_KEY = 'youth-montreal-host-requests';
+const HOST_MEMBERSHIPS_KEY = 'youth-montreal-host-memberships';
 const AUDIT_LOG_KEY = 'youth-montreal-audit-log';
 const PENDING_SYNC_KEY = 'youth-montreal-pending-sync';
 const SYNC_URL_KEY = 'youth-montreal-sheets-url';
 const LEGACY_LOCAL_KEYS = {
   [REPORTS_KEY]: ['youth-montreal-suggestions'],
-  [HOST_REQUESTS_KEY]: ['youth-montreal-title-requests']
+  [HOST_REQUESTS_KEY]: ['youth-montreal-title-requests'],
+  [HOST_MEMBERSHIPS_KEY]: ['youth-montreal-hostMemberships']
 };
 const syncListeners = new Set();
 const REMOTE_TIMEOUT_MS = 8000;
@@ -178,7 +180,11 @@ function migrateLegacyLocalList(key) {
 function normalizeEntry(entry) {
   const canonicalEntry = {
     ...entry,
-    hostName: entry?.hostName || entry?.churchName || ''
+    hostName: entry?.hostName || entry?.churchName || '',
+    type: entry?.type || (entry?.targetHostId ? 'join_existing_host' : 'new_host'),
+    targetHostId: entry?.targetHostId || '',
+    requesterAccountId: entry?.requesterAccountId || entry?.accountId || '',
+    requesterEmail: entry?.requesterEmail || entry?.email || ''
   };
   return {
     status: 'pending',
@@ -283,6 +289,14 @@ export async function loadHostRequests() {
   return loadList('hostRequests', HOST_REQUESTS_KEY);
 }
 
+export async function loadHostMemberships() {
+  return loadList('hostMemberships', HOST_MEMBERSHIPS_KEY);
+}
+
+export async function saveHostMemberships(hostMemberships) {
+  await saveList('hostMemberships', HOST_MEMBERSHIPS_KEY, hostMemberships);
+}
+
 export async function submitReport(report) {
   const list = await loadReports();
   list.push(normalizeEntry(report));
@@ -302,9 +316,9 @@ export async function updateReportStatus(id, status) {
   return next;
 }
 
-export async function updateHostRequestStatus(id, status) {
+export async function updateHostRequestStatus(id, status, patch = {}) {
   const list = await loadHostRequests();
-  const next = list.map((item) => (item.id === id ? { ...item, status, reviewedAt: new Date().toISOString() } : item));
+  const next = list.map((item) => (item.id === id ? { ...item, ...patch, status, reviewedAt: new Date().toISOString() } : item));
   await saveList('hostRequests', HOST_REQUESTS_KEY, next);
   return next;
 }

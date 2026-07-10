@@ -4,6 +4,11 @@
  */
 
 const RESOURCE_CONFIG = {
+  accounts: {
+    sheetName: 'accounts',
+    resourceAliases: ['account'],
+    sheetAliases: ['account']
+  },
   hosts: {
     sheetName: 'hosts',
     resourceAliases: ['host', 'church', 'churches'],
@@ -13,6 +18,11 @@ const RESOURCE_CONFIG = {
     sheetName: 'reports',
     resourceAliases: ['report', 'suggestion', 'suggestions'],
     sheetAliases: ['suggestions']
+  },
+  hostMemberships: {
+    sheetName: 'hostMemberships',
+    resourceAliases: ['hostmembership', 'hostmemberships', 'host membership', 'host memberships'],
+    sheetAliases: ['hostmembership', 'hostmemberships', 'host membership', 'host memberships']
   },
   hostRequests: {
     sheetName: 'hostRequests',
@@ -144,3 +154,27 @@ function toCamelCase(value) {
   if (!normalized) return '';
   return normalized.replace(/[-_\s]+(.)/g, (_, group) => group.toUpperCase());
 }
+
+function readResourceList(resource) {
+  const resolved = resolveSheet(resource, SpreadsheetApp.getActiveSpreadsheet());
+  if (!resolved) return [];
+  return parseSheetPayload(resolved.sheet);
+}
+
+function writeResourceList(resource, list) {
+  const resolved = resolveSheet(resource, SpreadsheetApp.getActiveSpreadsheet());
+  if (!resolved) return;
+  resolved.sheet.getRange(2, 1).setValue(JSON.stringify(Array.isArray(list) ? list : []));
+}
+
+function createResponse(payload) {
+  return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(ContentService.MimeType.JSON);
+}
+
+const ADM_ALLOWLIST = [
+  'dmarkprogrammer@gmail.com',
+  'davincicarnevale@gmail.com',
+  'jato30.jato30@gmail.com',
+  'danielm.b.barbosa@hotmail.com',
+  'youthmontrealmvnmt@gmail.com'
+];
