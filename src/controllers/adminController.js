@@ -1,7 +1,7 @@
 import { geocodeAddress, reverseGeocode, searchMontrealAddresses } from '../services/geocoding.js';
 import { appendAuditLog, saveHosts, updateHostRequestStatus, updateReportStatus } from '../services/repository.js';
 import { t } from '../i18n.js';
-import { ADM_PASSCODE } from '../config.js';
+import { authenticateAdm, authenticateHost } from '../services/auth.js';
 import { normalizeAddress, shortenAddress } from '../utils/address.js';
 import { dedupeHosts, findDuplicateHost } from '../utils/hostDedup.js';
 
@@ -398,7 +398,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
   elements.addHostButton.addEventListener('click', () => startEditHost());
 
-  elements.toggleHost.addEventListener('click', () => {
+  elements.toggleHost.addEventListener('click', async () => {
     if (state.isHostMode) {
       state.isHostMode = false;
       state.activeHostId = null;
@@ -411,14 +411,14 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
     const code = prompt(t(state, 'enterHostCode'));
     if (!code) return;
-    const host = state.hosts.find((item) => item.hostPasscode === code.trim());
-    if (!host) {
+    const session = await authenticateHost({ accessCode: code.trim() });
+    if (!session?.valid || !session?.hostMembership?.hostId) {
       elements.workspaceStatus.textContent = t(state, 'hostCodeNotFound');
       return;
     }
 
     state.isHostMode = true;
-    state.activeHostId = host.id;
+    state.activeHostId = session.hostMembership.hostId;
     state.isAdminMode = false;
     setWorkspaceVisibility();
     renderHostManager();
@@ -426,10 +426,11 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     renderModeration();
   });
 
-  elements.toggleAdmin.addEventListener('click', () => {
+  elements.toggleAdmin.addEventListener('click', async () => {
     if (!state.isAdminMode) {
       const code = prompt(t(state, 'enterAdmCode'));
-      if (code !== ADM_PASSCODE) {
+      const session = await authenticateAdm({ accessCode: (code || '').trim() });
+      if (!session?.valid || !session.isAdm) {
         elements.workspaceStatus.textContent = t(state, 'admCodeNotFound');
         return;
       }
@@ -562,8 +563,11 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       let generatedHostCode = '';
       if (status === 'approved') {
         generatedHostCode = hostCode();
-        state.hosts.push({
-          id: crypto.randomUUID(),
+        const request = state.hostRequests.find((item) => item.id === id);
+        const targetHostId = request?.hostId || crypto.randomUUID();
+        const existingHost = state.hosts.find((item) => item.id === targetHostId);
+        if (!existingHost) state.hosts.push({
+          id: targetHostId,
           hostPasscode: generatedHostCode,
           name: state.hostRequests.find((item) => item.id === id)?.hostName || t(state, 'newHostName'),
           address: '',
@@ -578,6 +582,10 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
           whatsapp: '',
           events: []
         });
+        state.hostMemberships = state.hostMemberships || [];
+        if (request?.accountId && !state.hostMemberships.find((m) => m.accountId === request.accountId && m.hostId === targetHostId)) {
+          state.hostMemberships.push({ id: crypto.randomUUID(), accountId: request.accountId, hostId: targetHostId, role: 'manager', status: 'active' });
+        }
         if (!await saveHostsWithFeedback()) return;
       }
       state.hostRequests = await updateHostRequestStatus(id, status === 'approved' ? 'approved' : status);

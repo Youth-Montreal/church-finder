@@ -271,3 +271,19 @@ This repository now includes:
 - Replace placeholder contact email/address in both files.
 - Keep Play Console Data Safety answers aligned with policy content (location + calendar permissions and purposes).
 - [ ] Promote tested release to Production
+
+
+## Backend identity and canonical entities
+
+Auth is now backend-validated and localStorage is no longer treated as the authority for ADM/HOST access decisions.
+
+Canonical backend entities used by the Apps Script backend and sync contract:
+- `account`
+- `host`
+- `hostMembership`
+- `hostRequest`
+- `liveEvent`
+- `liveEventParticipant`
+- `report`
+
+`hostMembership` supports many accounts managing one host without creating duplicate host map pins. ADM authority is enforced with a server-side allowlist in Apps Script (`google-sheets-backend.gs`).
