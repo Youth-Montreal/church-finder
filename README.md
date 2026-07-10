@@ -122,9 +122,10 @@ If you reintroduce custom `Content-Type: application/json`, some deployments may
 
 - Host/ADM passcode prompts are replaced by email/password login prompts.
 - ADM login is restricted to an allowlist of ADM emails in `src/services/auth.js`.
-- Host signup now creates a host account and automatically submits a host request.
-- Host account activation happens only after ADM approval of the host request.
-- Rejected host emails are blocked from re-requesting for 30 days.
+- Host signup now creates a host account and automatically submits a canonical `hostRequest`. Applicants can request a `new_host` or `join_existing_host` by searching the existing host name/address.
+- Host requests persist `type`, `targetHostId`, `requesterAccountId`/`requesterEmail`, and `status` so ADM review can distinguish new registrations from membership joins.
+- Host account activation happens only after ADM approval of the host request. Approving `join_existing_host` creates a `hostMembership` for the requester and existing host without creating another host location entry.
+- Rejected host emails are blocked from re-requesting the same target host for 30 days, and only one pending request per email per target host is allowed.
 - Current implementation is client-side/localStorage based; production rollout should move credential checks to a dedicated backend identity provider.
 
 ### Startup sync deadlock guard
@@ -300,4 +301,4 @@ Canonical backend entities used by the Apps Script backend and sync contract:
 - `liveEventParticipant`
 - `report`
 
-`hostMembership` supports many accounts managing one host without creating duplicate host map pins. ADM authority is enforced with a server-side allowlist in Apps Script (`google-sheets-backend.gs`).
+`hostMembership` supports many accounts managing one host without creating duplicate host map pins. Approved memberships all render the same host profile in the workspace; only `new_host` approvals create a new host location entry. ADM authority is enforced with a server-side allowlist in Apps Script (`google-sheets-backend.gs`).

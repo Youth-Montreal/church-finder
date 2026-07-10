@@ -33,17 +33,33 @@ export function getSession() {
 
 export function logout() { localStorage.removeItem(SESSION_KEY); }
 
-export function registerHostAccount({ email, password, fullName, hostName }, hostRequests) {
+export function registerHostAccount({ email, password, fullName, hostName, type = 'new_host', targetHostId = '' }, hostRequests) {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail || !password) return { ok: false, error: 'missing' };
   const users = readUsers();
-  if (users.some((item) => item.email === normalizedEmail)) return { ok: false, error: 'exists' };
+  const existingIndex = users.findIndex((item) => item.email === normalizedEmail && item.role === 'host');
   const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-  const blocked = (hostRequests || []).some((request) => normalizeEmail(request.email) === normalizedEmail
+  const targetKey = type === 'join_existing_host' ? String(targetHostId || '').trim() : 'new_host';
+  const requestTargetKey = (request) => (request.type === 'join_existing_host' ? String(request.targetHostId || request.hostId || '').trim() : 'new_host');
+  const blocked = (hostRequests || []).some((request) => normalizeEmail(request.email || request.requesterEmail) === normalizedEmail
+    && requestTargetKey(request) === targetKey
     && request.status === 'denied' && new Date(request.reviewedAt || request.updatedAt || request.createdAt || 0).getTime() >= thirtyDaysAgo);
-  const pending = (hostRequests || []).some((request) => normalizeEmail(request.email) === normalizedEmail && request.status === 'pending');
+  const pending = (hostRequests || []).some((request) => normalizeEmail(request.email || request.requesterEmail) === normalizedEmail && requestTargetKey(request) === targetKey && request.status === 'pending');
   if (blocked) return { ok: false, error: 'blocked' };
   if (pending) return { ok: false, error: 'pending' };
+
+  if (existingIndex >= 0) {
+    users[existingIndex] = {
+      ...users[existingIndex],
+      fullName: fullName || users[existingIndex].fullName || '',
+      hostName: hostName || users[existingIndex].hostName || '',
+      status: users[existingIndex].status === 'denied' ? 'pending' : users[existingIndex].status,
+      passwordHash: hash(`${normalizedEmail}:${password}`),
+      updatedAt: new Date().toISOString()
+    };
+    writeUsers(users);
+    return { ok: true, accountId: users[existingIndex].id };
+  }
 
   users.push({
     id: crypto.randomUUID(),
@@ -56,7 +72,7 @@ export function registerHostAccount({ email, password, fullName, hostName }, hos
     createdAt: new Date().toISOString()
   });
   writeUsers(users);
-  return { ok: true };
+  return { ok: true, accountId: users[users.length - 1].id };
 }
 
 export function login({ email, password, role }) {
@@ -89,11 +105,25 @@ export function login({ email, password, role }) {
   return { ok: true, session };
 }
 
+export function getHostAccountByEmail(email) {
+  const normalizedEmail = normalizeEmail(email);
+  return readUsers().find((item) => item.email === normalizedEmail && item.role === 'host') || null;
+}
+
 export function activateHostByEmail(email) {
   const normalizedEmail = normalizeEmail(email);
   const users = readUsers();
   const idx = users.findIndex((item) => item.email === normalizedEmail && item.role === 'host');
   if (idx < 0) return;
   users[idx] = { ...users[idx], status: 'active', reviewedAt: new Date().toISOString() };
+  writeUsers(users);
+}
+
+export function setHostReviewStatusByEmail(email, status) {
+  const normalizedEmail = normalizeEmail(email);
+  const users = readUsers();
+  const idx = users.findIndex((item) => item.email === normalizedEmail && item.role === 'host');
+  if (idx < 0) return;
+  users[idx] = { ...users[idx], status, reviewedAt: new Date().toISOString() };
   writeUsers(users);
 }

@@ -1,7 +1,7 @@
 import { geocodeAddress, reverseGeocode, searchMontrealAddresses } from '../services/geocoding.js';
-import { appendAuditLog, saveHosts, updateHostRequestStatus, updateReportStatus } from '../services/repository.js';
+import { appendAuditLog, saveHostMemberships, saveHosts, updateHostRequestStatus, updateReportStatus } from '../services/repository.js';
 import { t } from '../i18n.js';
-import { login, logout, getSession, activateHostByEmail } from '../services/auth.js';
+import { login, logout, getSession, activateHostByEmail, getHostAccountByEmail, setHostReviewStatusByEmail } from '../services/auth.js';
 import { normalizeAddress, shortenAddress } from '../utils/address.js';
 import { dedupeHosts, findDuplicateHost } from '../utils/hostDedup.js';
 
@@ -276,7 +276,9 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       ? hostRequests.map((item) => `
           <article class="queue-item">
             <p><strong>${item.hostName || item.organization || item.fullName}</strong></p>
+            <p>${item.type === 'join_existing_host' ? t(state, 'joinExistingHost') : t(state, 'newHostRequest')}</p>
             <p>${item.position || ''} · ${item.phone || ''}</p>
+            <p>${item.targetHostId ? `${t(state, 'targetHostSearch')}: ${(state.hosts.find((host) => host.id === item.targetHostId)?.name || item.targetHostId)}` : ''}</p>
             <p>${item.message || item.details || ''}</p>
             <div class="queue-actions" data-id="${item.id}" data-resource="hostRequest">
               <button type="button" data-status="pending">${t(state, 'statusPending')}</button>
@@ -418,7 +420,9 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       elements.workspaceStatus.textContent = t(state, result.error === 'pending' ? 'hostAccountPending' : 'loginFailed');
       return;
     }
-    const host = state.hosts.find((item) => String(item.contactEmail || '').toLowerCase() === String(email).toLowerCase());
+    const account = getHostAccountByEmail(email);
+    const membership = (state.hostMemberships || []).find((item) => item.accountId === account?.id && item.status !== 'revoked');
+    const host = state.hosts.find((item) => item.id === membership?.hostId);
     state.isHostMode = true;
     state.activeHostId = host?.id || null;
     state.isAdminMode = false;
@@ -568,16 +572,19 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     }
 
     if (resource === 'hostRequest') {
+      const request = state.hostRequests.find((item) => item.id === id);
       let generatedHostCode = '';
+      let statusPatch = {};
+      if (status === 'denied') setHostReviewStatusByEmail(request?.requesterEmail || request?.email, 'denied');
       if (status === 'approved') {
         generatedHostCode = hostCode();
-        const request = state.hostRequests.find((item) => item.id === id);
-        const targetHostId = request?.hostId || crypto.randomUUID();
+        const isJoinExistingHost = request?.type === 'join_existing_host';
+        const targetHostId = isJoinExistingHost ? request.targetHostId : (request?.hostId || crypto.randomUUID());
         const existingHost = state.hosts.find((item) => item.id === targetHostId);
-        if (!existingHost) state.hosts.push({
+        if (!isJoinExistingHost && !existingHost) state.hosts.push({
           id: targetHostId,
           hostPasscode: generatedHostCode,
-          name: state.hostRequests.find((item) => item.id === id)?.hostName || t(state, 'newHostName'),
+          name: request?.hostName || t(state, 'newHostName'),
           address: '',
           googleMapsUrl: '',
           googlePlaceId: '',
@@ -590,17 +597,17 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
           whatsapp: '',
           events: []
         });
+        const accountId = request?.requesterAccountId || request?.accountId;
         state.hostMemberships = state.hostMemberships || [];
-        if (request?.accountId && !state.hostMemberships.find((m) => m.accountId === request.accountId && m.hostId === targetHostId)) {
-          state.hostMemberships.push({ id: crypto.randomUUID(), accountId: request.accountId, hostId: targetHostId, role: 'manager', status: 'active' });
+        if (accountId && targetHostId && !state.hostMemberships.find((m) => m.accountId === accountId && m.hostId === targetHostId)) {
+          state.hostMemberships.push({ id: crypto.randomUUID(), accountId, hostId: targetHostId, role: 'manager', status: 'active', createdAt: new Date().toISOString() });
+          await saveHostMemberships(state.hostMemberships);
         }
-        if (!await saveHostsWithFeedback()) return;
+        activateHostByEmail(request?.requesterEmail || request?.email);
+        statusPatch = { generatedHostCode: isJoinExistingHost ? '' : generatedHostCode, targetHostId };
+        if (!isJoinExistingHost && !await saveHostsWithFeedback()) return;
       }
-      state.hostRequests = await updateHostRequestStatus(id, status === 'approved' ? 'approved' : status);
-      if (generatedHostCode) {
-        const request = state.hostRequests.find((item) => item.id === id);
-        if (request) request.generatedHostCode = generatedHostCode;
-      }
+      state.hostRequests = await updateHostRequestStatus(id, status === 'approved' ? 'approved' : status, statusPatch);
       state.auditLog = await appendAuditLog({ action: `host_request_${status}`, label: id });
       renderHostManager();
       elements.workspaceStatus.textContent = t(state, 'moderationUpdated');

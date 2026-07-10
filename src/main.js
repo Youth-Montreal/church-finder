@@ -1,5 +1,5 @@
 import { LANGUAGE_KEY, STORAGE_KEY } from './config.js';
-import { appendAuditLog, getConfiguredSyncUrl, getSyncState, loadAuditLog, loadHosts, loadHostRequests, loadReports, retryPendingSync, saveHosts, setConfiguredSyncUrl, subscribeSyncState, submitHostRequest, submitReport } from './services/repository.js';
+import { appendAuditLog, getConfiguredSyncUrl, getSyncState, loadAuditLog, loadHosts, loadHostRequests, loadHostMemberships, loadReports, retryPendingSync, saveHosts, setConfiguredSyncUrl, subscribeSyncState, submitHostRequest, submitReport } from './services/repository.js';
 import { registerHostAccount } from './services/auth.js';
 import { createMap, renderMarkers, resetMapView } from './ui/mapView.js';
 import { renderHostDetails } from './ui/detailsView.js';
@@ -463,9 +463,36 @@ function setupPublicForms() {
     elements.titleRequestStatus.textContent = '';
   });
 
+  const refreshTitleRequestHosts = () => {
+    const list = elements.titleRequestForm.querySelector('#title-request-hosts');
+    if (!list) return;
+    list.innerHTML = state.hosts.map((host) => `<option value="${host.name} — ${host.address || ''}" data-id="${host.id}"></option>`).join('');
+  };
+  const syncTitleRequestPath = () => {
+    const type = elements.titleRequestForm.elements.type?.value || 'new_host';
+    const isJoining = type === 'join_existing_host';
+    elements.titleRequestForm.querySelector('#target-host-wrap')?.classList.toggle('hidden', !isJoining);
+    elements.titleRequestForm.elements.hostName.required = !isJoining;
+    elements.titleRequestForm.elements.targetHostSearch.required = isJoining;
+    refreshTitleRequestHosts();
+  };
+  elements.titleRequestForm.querySelectorAll('[name="type"]').forEach((input) => input.addEventListener('change', syncTitleRequestPath));
+  elements.titleRequestForm.elements.targetHostSearch?.addEventListener('input', () => {
+    const query = elements.titleRequestForm.elements.targetHostSearch.value.trim().toLowerCase();
+    const host = state.hosts.find((item) => `${item.name} — ${item.address || ''}`.toLowerCase() === query)
+      || state.hosts.find((item) => `${item.name} ${item.address || ''}`.toLowerCase().includes(query));
+    elements.titleRequestForm.elements.targetHostId.value = host?.id || '';
+    if (host) elements.titleRequestForm.elements.hostName.value = host.name;
+  });
+  syncTitleRequestPath();
+
   elements.titleRequestForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(elements.titleRequestForm).entries());
+    if (data.type === 'join_existing_host' && !data.targetHostId) {
+      elements.titleRequestStatus.textContent = t(state, 'targetHostRequired');
+      return;
+    }
     const registration = registerHostAccount(data, state.hostRequests);
     if (!registration.ok) {
       elements.titleRequestStatus.textContent = t(state, registration.error === 'blocked'
@@ -475,7 +502,16 @@ function setupPublicForms() {
           : 'hostRequestCreateFailed');
       return;
     }
-    await submitHostRequest({ id: crypto.randomUUID(), ...data, createdAt: new Date().toISOString() });
+    await submitHostRequest({
+      id: crypto.randomUUID(),
+      ...data,
+      type: data.type || 'new_host',
+      targetHostId: data.type === 'join_existing_host' ? data.targetHostId : '',
+      requesterAccountId: registration.accountId,
+      requesterEmail: data.email,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    });
     state.hostRequests = await loadHostRequests();
     state.auditLog = await appendAuditLog({ action: 'title_request_submitted', label: data.hostName || 'host request' });
     elements.titleRequestForm.reset();
@@ -612,16 +648,18 @@ async function init() {
       retryPendingSync(),
       new Promise((resolve) => setTimeout(resolve, 9000))
     ]);
-    const [hosts, reports, hostRequests, auditLog] = await Promise.all([
+    const [hosts, reports, hostRequests, hostMemberships, auditLog] = await Promise.all([
       loadHosts(),
       loadReports(),
       loadHostRequests(),
+      loadHostMemberships(),
       loadAuditLog()
     ]);
     const dedupedHostsResult = dedupeHosts(hosts);
     state.hosts = dedupedHostsResult.deduped;
     state.reports = reports;
     state.hostRequests = hostRequests;
+    state.hostMemberships = hostMemberships;
     state.auditLog = auditLog;
 
     if (dedupedHostsResult.removed.length) {
