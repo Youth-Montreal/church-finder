@@ -102,6 +102,7 @@ const state = {
   hosts: [],
   reports: [],
   hostRequests: [],
+  hostMemberships: [],
   auditLog: [],
   markers: new Map(),
   filteredIds: null,

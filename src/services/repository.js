@@ -130,6 +130,26 @@ async function remotePost(resource, payload) {
   }
 }
 
+
+
+async function remotePostJson(payload) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REMOTE_TIMEOUT_MS);
+  try {
+    const response = await fetch(getRemoteUrl(), {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    }).finally(() => clearTimeout(timer));
+    if (!response.ok) throw new Error('Remote POST failed');
+    const data = await response.json();
+    if (data?.error) throw new Error(`Remote POST error: ${data.error}`);
+    return data;
+  } catch (error) {
+    throw error;
+  }
+}
+
 function readLocalList(key) {
   const saved = localStorage.getItem(key) || migrateLegacyLocalList(key);
   try {
@@ -298,4 +318,26 @@ export async function appendAuditLog(entry) {
   const next = [{ id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...entry }, ...list].slice(0, 100);
   writeLocalList(AUDIT_LOG_KEY, next);
   return next;
+}
+
+
+export async function verifySessionToken({ role, token = '', accessCode = '' }) {
+  if (!canAttemptRemote('session')) return { valid: false };
+  try {
+    const result = await remotePostJson({ action: 'verifySession', role, token, accessCode });
+    return { valid: Boolean(result?.valid), accountId: result?.accountId || null, isAdm: Boolean(result?.isAdm), hostMembership: result?.hostMembership || null };
+  } catch {
+    return { valid: false };
+  }
+}
+
+export async function exchangeHostAccessCode(accessCode) {
+  if (!canAttemptRemote('session')) return null;
+  try {
+    const result = await remotePostJson({ action: 'exchangeHostAccessCode', accessCode });
+    if (!result?.token) return null;
+    return { token: result.token, accountId: result.accountId || null, hostMembership: result.hostMembership || null };
+  } catch {
+    return null;
+  }
 }

@@ -1,6 +1,6 @@
 /**
  * Youth Montreal Host Finder - Backend Workspace
- * Canonical resources: 'hosts', 'reports', 'hostRequests'
+ * Canonical resources: account, host, hostMembership, hostRequest, liveEvent, liveEventParticipant, report
  */
 
 const RESOURCE_CONFIG = {
@@ -103,20 +103,40 @@ function doGet(e) {
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
+    if (body.action === 'verifySession') return createResponse(handleVerifySession(body));
+    if (body.action === 'exchangeHostAccessCode') return createResponse(handleExchangeHostAccessCode(body));
     const resolved = resolveSheet(body.resource, SpreadsheetApp.getActiveSpreadsheet());
-    const payload = body.payload;
     if (!resolved) return createResponse({ error: 'Resource not found' });
-
-    resolved.sheet.getRange(2, 1).setValue(JSON.stringify(payload));
+    resolved.sheet.getRange(2, 1).setValue(JSON.stringify(body.payload));
     return createResponse({ success: true, resource: resolved.resource });
   } catch (err) {
     return createResponse({ error: err.toString() });
   }
 }
 
-function createResponse(data) {
-  return ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
+function handleVerifySession(body) {
+  if (body.role === 'adm') {
+    const accounts = readResourceList('accounts');
+    const account = accounts.find((item) => item.admAccessCode === body.accessCode);
+    return { valid: Boolean(account), isAdm: Boolean(account && ADM_ALLOWLIST.includes(String(account.email || '').toLowerCase())), accountId: account ? account.id : null };
+  }
+  if (body.role === 'host') {
+    const memberships = readResourceList('hostMemberships');
+    const session = memberships.find((item) => item.sessionToken === body.token && item.status !== 'revoked');
+    return { valid: Boolean(session), accountId: session ? session.accountId : null, hostMembership: session || null };
+  }
+  return { valid: false };
+}
+
+function handleExchangeHostAccessCode(body) {
+  const memberships = readResourceList('hostMemberships');
+  const membership = memberships.find((item) => item.hostAccessCode === body.accessCode && item.status !== 'revoked');
+  if (!membership) return { valid: false };
+  const token = Utilities.getUuid();
+  membership.sessionToken = token;
+  membership.sessionIssuedAt = new Date().toISOString();
+  writeResourceList('hostMemberships', memberships);
+  return { valid: true, token, accountId: membership.accountId, hostMembership: membership };
 }
 
 function toCamelCase(value) {

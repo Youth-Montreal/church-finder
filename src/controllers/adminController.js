@@ -398,7 +398,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
   elements.addHostButton.addEventListener('click', () => startEditHost());
 
-  elements.toggleHost.addEventListener('click', () => {
+  elements.toggleHost.addEventListener('click', async () => {
     if (state.isHostMode) {
       logout();
       state.isHostMode = false;
@@ -571,8 +571,11 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       let generatedHostCode = '';
       if (status === 'approved') {
         generatedHostCode = hostCode();
-        state.hosts.push({
-          id: crypto.randomUUID(),
+        const request = state.hostRequests.find((item) => item.id === id);
+        const targetHostId = request?.hostId || crypto.randomUUID();
+        const existingHost = state.hosts.find((item) => item.id === targetHostId);
+        if (!existingHost) state.hosts.push({
+          id: targetHostId,
           hostPasscode: generatedHostCode,
           name: state.hostRequests.find((item) => item.id === id)?.hostName || t(state, 'newHostName'),
           address: '',
@@ -587,6 +590,10 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
           whatsapp: '',
           events: []
         });
+        state.hostMemberships = state.hostMemberships || [];
+        if (request?.accountId && !state.hostMemberships.find((m) => m.accountId === request.accountId && m.hostId === targetHostId)) {
+          state.hostMemberships.push({ id: crypto.randomUUID(), accountId: request.accountId, hostId: targetHostId, role: 'manager', status: 'active' });
+        }
         if (!await saveHostsWithFeedback()) return;
       }
       state.hostRequests = await updateHostRequestStatus(id, status === 'approved' ? 'approved' : status);
