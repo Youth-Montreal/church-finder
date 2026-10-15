@@ -296,6 +296,53 @@ function sessionSnapshot(actor, token) {
   };
 }
 
+function loginRateLimitKey(email) {
+  return 'AUTH_LOGIN_FAILURES_' + hashSessionToken(normalizeAuthEmail(email));
+}
+
+function isLoginRateLimited(email) {
+  const properties = PropertiesService.getScriptProperties();
+  const key = loginRateLimitKey(email);
+  const raw = properties.getProperty(key);
+  if (!raw) return false;
+  let record;
+  try {
+    record = JSON.parse(raw);
+  } catch (error) {
+    properties.deleteProperty(key);
+    return false;
+  }
+  const now = Date.now();
+  if (record.lockedUntil && Number(record.lockedUntil) > now) return true;
+  if (!record.windowStartedAt || now - Number(record.windowStartedAt) > 15 * 60 * 1000) {
+    properties.deleteProperty(key);
+    return false;
+  }
+  return Number(record.attempts) >= 8;
+}
+
+function recordLoginFailure(email) {
+  const properties = PropertiesService.getScriptProperties();
+  const key = loginRateLimitKey(email);
+  const now = Date.now();
+  let record;
+  try {
+    record = JSON.parse(properties.getProperty(key) || 'null');
+  } catch (error) {
+    record = null;
+  }
+  if (!record || !record.windowStartedAt || now - Number(record.windowStartedAt) > 15 * 60 * 1000) {
+    record = { windowStartedAt: now, attempts: 0, lockedUntil: 0 };
+  }
+  record.attempts = Number(record.attempts || 0) + 1;
+  if (record.attempts >= 8) record.lockedUntil = now + 15 * 60 * 1000;
+  properties.setProperty(key, JSON.stringify(record));
+}
+
+function clearLoginFailures(email) {
+  PropertiesService.getScriptProperties().deleteProperty(loginRateLimitKey(email));
+}
+
 function handleLogin(body) {
   return withScriptLock(function() {
     const email = normalizeAuthEmail(body.email);
@@ -304,18 +351,20 @@ function handleLogin(body) {
     if (!email || !password || (requestedRole !== 'adm' && requestedRole !== 'host')) {
       return { ok: false, error: 'invalid' };
     }
+    if (isLoginRateLimited(email)) return { ok: false, error: 'invalid' };
 
     const accounts = readResourceList('accounts');
     const index = accounts.findIndex(function(item) { return normalizeAuthEmail(item.email) === email; });
-    if (index < 0) return { ok: false, error: 'invalid' };
+    if (index < 0) { recordLoginFailure(email); return { ok: false, error: 'invalid' }; }
     const account = accounts[index];
-    if (account.role !== requestedRole) return { ok: false, error: 'invalid' };
-    if (requestedRole === 'adm' && !isAllowlistedAdmEmail(email)) return { ok: false, error: 'invalid' };
-    if (String(account.passwordHash || '') !== hashPassword(password, account.passwordSalt || '')) return { ok: false, error: 'invalid' };
+    if (account.role !== requestedRole) { recordLoginFailure(email); return { ok: false, error: 'invalid' }; }
+    if (requestedRole === 'adm' && !isAllowlistedAdmEmail(email)) { recordLoginFailure(email); return { ok: false, error: 'invalid' }; }
+    if (String(account.passwordHash || '') !== hashPassword(password, account.passwordSalt || '')) { recordLoginFailure(email); return { ok: false, error: 'invalid' }; }
     if (account.status !== 'active') {
       return { ok: false, error: account.status === 'pending' ? 'pending' : 'denied' };
     }
 
+    clearLoginFailures(email);
     const memberships = requestedRole === 'host' ? activeMembershipsForAccount(account.id) : [];
     if (requestedRole === 'host' && !memberships.length) return { ok: false, error: 'pending' };
 
