@@ -326,11 +326,11 @@ function pruneLoginRateLimits(records, now) {
     }
   });
   const keys = Object.keys(records);
-  if (keys.length > 500) {
+  if (keys.length > 30) {
     keys.sort(function(a, b) {
       return Number(records[a].windowStartedAt || 0) - Number(records[b].windowStartedAt || 0);
     });
-    keys.slice(0, keys.length - 500).forEach(function(key) { delete records[key]; });
+    keys.slice(0, keys.length - 30).forEach(function(key) { delete records[key]; });
   }
   return records;
 }
