@@ -116,18 +116,29 @@ async function remoteGet(resource) {
   }
 }
 
+function getClientSessionToken() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('youth-montreal-auth-session') || 'null');
+    if (typeof saved === 'string') return saved;
+    return typeof saved?.token === 'string' ? saved.token : '';
+  } catch {
+    return '';
+  }
+}
+
 async function remotePost(resource, payload) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REMOTE_TIMEOUT_MS);
   try {
+    const token = getClientSessionToken();
     const response = await fetch(getRemoteUrl(), {
       method: 'POST',
-      body: JSON.stringify({ resource, payload }),
+      body: JSON.stringify({ resource, payload, token }),
       signal: controller.signal
     }).finally(() => clearTimeout(timer));
     if (!response.ok) throw new Error(`Remote POST failed: ${resource}`);
     const data = await response.json();
-    if (data?.error) throw new Error(`Remote POST error: ${data.error}`);
+    if (data?.error || data?.ok === false) throw new Error(`Remote POST error: ${data?.error || data?.reason || 'request rejected'}`);
     clearRemoteCooldown(resource);
     return data;
   } catch (error) {
@@ -249,7 +260,26 @@ function normalizeEntry(entry) {
   };
 }
 
+const AUTHENTICATED_RESOURCES = new Set([
+  'reports', 'hostRequests', 'hostMemberships', 'liveEvents', 'liveEventParticipants'
+]);
+
 async function loadList(resource, localKey) {
+  if (AUTHENTICATED_RESOURCES.has(resource)) {
+    const token = getClientSessionToken();
+    if (!token || !canAttemptRemote('session')) return [];
+    try {
+      const data = await remotePostJson({ action: 'readResource', resource, token });
+      if (!data?.ok) return [];
+      const list = Array.isArray(data?.[resource]) ? data[resource].map(normalizeEntry) : [];
+      writeLocalList(localKey, list);
+      return list;
+    } catch {
+      // Never turn a stale local cache into authorization when remote verification fails.
+      return [];
+    }
+  }
+
   if (canAttemptRemote(resource)) {
     try {
       const data = await remoteGet(resource);
@@ -257,13 +287,17 @@ async function loadList(resource, localKey) {
       writeLocalList(localKey, list);
       return list;
     } catch {
-      // fallback to local cache
+      // Public data may use the documented local/offline fallback.
     }
   }
   return readLocalList(localKey).map(normalizeEntry);
 }
 
 async function saveList(resource, localKey, list) {
+  if (['accounts', 'reports', 'hostRequests', 'hostMemberships', 'liveEventParticipants'].indexOf(resource) >= 0) {
+    throw new Error(`Direct writes to ${resource} are disabled; use a backend action.`);
+  }
+
   writeLocalList(localKey, list);
   if (canAttemptRemote(resource)) {
     try {
@@ -337,6 +371,50 @@ export function subscribeSyncState(listener) {
   return () => syncListeners.delete(listener);
 }
 
+export async function loginWithBackend({ email, password, role }) {
+  if (!hasRemote() || !canAttemptRemote('session')) return { ok: false, error: 'backend_unavailable' };
+  return remotePostJson({ action: 'login', email, password, role });
+}
+
+export async function registerHostAccountWithBackend(data) {
+  if (!hasRemote() || !canAttemptRemote('session')) return { ok: false, error: 'backend_unavailable' };
+  return remotePostJson({ action: 'registerHostAccount', ...data });
+}
+
+export async function verifyBackendSession(token) {
+  if (!token || !hasRemote() || !canAttemptRemote('session')) return { valid: false };
+  try {
+    const data = await remotePostJson({ action: 'verifySession', token });
+    return data?.valid ? data.session || { valid: true } : { valid: false };
+  } catch {
+    return { valid: false };
+  }
+}
+
+export async function logoutBackendSession(token) {
+  if (!token || !hasRemote()) return { ok: true };
+  try {
+    return await remotePostJson({ action: 'logout', token });
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function moderateHostRequest(id, status, patch = {}) {
+  if (!hasRemote()) throw new Error('A configured backend is required for moderation.');
+  const token = getClientSessionToken();
+  if (!token) throw new Error('An authenticated session is required.');
+  const result = await remotePostJson({ action: 'moderateHostRequest', id, status, patch, token });
+  if (!result?.ok) throw new Error(result?.reason || 'Host request moderation was rejected.');
+
+  if (Array.isArray(result.hosts)) {
+    await saveLocalHosts(result.hosts);
+  }
+  if (Array.isArray(result.hostMemberships)) writeLocalList(HOST_MEMBERSHIPS_KEY, result.hostMemberships);
+  if (Array.isArray(result.hostRequests)) writeLocalList(HOST_REQUESTS_KEY, result.hostRequests);
+  return result;
+}
+
 export async function loadReports() {
   return loadList('reports', REPORTS_KEY);
 }
@@ -354,9 +432,15 @@ export async function saveHostMemberships(hostMemberships) {
 }
 
 export async function submitReport(report) {
-  const list = await loadReports();
-  list.push(normalizeEntry(report));
-  await saveList('reports', REPORTS_KEY, list);
+  if (hasRemote()) {
+    const result = await remotePostJson({ action: 'submitReport', report });
+    if (!result?.ok) throw new Error('Report submission failed.');
+    return result.report;
+  }
+  const list = readLocalList(REPORTS_KEY);
+  const next = [...list, normalizeEntry(report)];
+  writeLocalList(REPORTS_KEY, next);
+  return report;
 }
 
 export async function submitHostRequest(hostRequest) {
@@ -366,17 +450,22 @@ export async function submitHostRequest(hostRequest) {
 }
 
 export async function updateReportStatus(id, status) {
-  const list = await loadReports();
+  if (hasRemote()) {
+    const token = getClientSessionToken();
+    const result = await remotePostJson({ action: 'updateReportStatus', id, status, token });
+    if (!result?.ok) throw new Error(result?.reason || 'Report update was rejected.');
+    writeLocalList(REPORTS_KEY, result.reports || []);
+    return result.reports || [];
+  }
+  const list = readLocalList(REPORTS_KEY);
   const next = list.map((item) => (item.id === id ? { ...item, status, reviewedAt: new Date().toISOString() } : item));
-  await saveList('reports', REPORTS_KEY, next);
+  writeLocalList(REPORTS_KEY, next);
   return next;
 }
 
 export async function updateHostRequestStatus(id, status, patch = {}) {
-  const list = await loadHostRequests();
-  const next = list.map((item) => (item.id === id ? { ...item, ...patch, status, reviewedAt: new Date().toISOString() } : item));
-  await saveList('hostRequests', HOST_REQUESTS_KEY, next);
-  return next;
+  const result = await moderateHostRequest(id, status, patch);
+  return result.hostRequests || [];
 }
 
 export async function loadAuditLog() {
@@ -447,45 +536,21 @@ export async function createLiveEvent(liveEvent) {
   return nextLiveEvent;
 }
 
-export async function joinLiveEvent({ liveEventId = '', joinCode = '', hostId = '', accountId = '', isAdm = false, isLead = false }) {
-  if (canAttemptRemote('liveEvents')) {
-    const result = await remotePostJson({ action: 'joinLiveEvent', liveEventId, joinCode, hostId, accountId, isAdm, isLead });
-    if (result?.participant) return normalizeLiveEventParticipant(result.participant);
-    throw new Error(result?.error || 'Unable to join live event');
-  }
-  const liveEvents = await loadLiveEvents();
-  const liveEvent = liveEvents.find((event) => event.id === liveEventId && event.status === 'active');
-  if (!liveEvent) throw new Error('Live event not found');
-  if (!isAdm && liveEvent.joinCode !== String(joinCode || '').trim()) throw new Error('Invalid join code');
-  const participants = await loadLiveEventParticipants();
-  const participant = normalizeLiveEventParticipant({ liveEventId, hostId, accountId, isLead });
-  const next = participants.filter((item) => !(item.liveEventId === liveEventId && item.hostId === hostId && item.accountId === accountId));
-  next.push(participant);
-  await saveLiveEventParticipants(next);
-  return participant;
+export async function joinLiveEvent({ liveEventId = '', joinCode = '', hostId = '', isLead = false }) {
+  const token = getClientSessionToken();
+  if (!hasRemote() || !token) throw new Error('An authenticated backend session is required to join a live event.');
+  const result = await remotePostJson({ action: 'joinLiveEvent', liveEventId, joinCode, hostId, isLead, token });
+  if (result?.participant) return normalizeLiveEventParticipant(result.participant);
+  throw new Error(result?.error || 'Unable to join live event');
 }
 
-export async function publishLiveEventParticipantLocation({ liveEventId = '', hostId = '', accountId = '', isAdm = false, capturedAt = new Date().toISOString(), lat, lng, latitude = lat, longitude = lng, speedKmh = 0, accuracyMeters = 0, isSharingEnabled = true }) {
-  if (canAttemptRemote('liveEventParticipants')) {
-    const result = await remotePostJson({ action: 'publishLiveEventParticipantLocation', liveEventId, hostId, accountId, isAdm, capturedAt, lat: latitude, lng: longitude, latitude, longitude, speedKmh, accuracyMeters, isSharingEnabled });
-    if (result?.participant) return normalizeLiveEventParticipant(result.participant);
-    throw new Error(result?.error || 'Unable to publish live event location');
-  }
-  const memberships = await loadHostMemberships();
-  const isMember = memberships.some((item) => item.hostId === hostId && item.accountId === accountId && item.status !== 'revoked');
-  if (!isAdm && !isMember) throw new Error('Only host members can publish this host location');
-  const liveEvents = await loadLiveEvents();
-  if (!liveEvents.some((event) => event.id === liveEventId && event.status === 'active')) throw new Error('Live event not found');
-  const participants = await loadLiveEventParticipants();
-  const index = participants.findIndex((item) => item.liveEventId === liveEventId && item.hostId === hostId && item.accountId === accountId);
-  const existing = participants[index];
-  const capturedTime = new Date(capturedAt).getTime();
-  const existingTime = new Date(existing?.capturedAt || existing?.lastLocationAt || 0).getTime();
-  if (Number.isFinite(existingTime) && Number.isFinite(capturedTime) && capturedTime <= existingTime) throw new Error('Stale or out-of-order live event location');
-  const patch = { capturedAt, lastLocationAt: capturedAt, lat: Number(latitude), lng: Number(longitude), latitude: Number(latitude), longitude: Number(longitude), accuracyMeters: Number(accuracyMeters) || 0, speedKmh: Number(speedKmh) || 0, isSharingEnabled };
-  const participant = normalizeLiveEventParticipant({ ...(existing || { liveEventId, hostId, accountId }), ...patch });
-  const next = [...participants];
-  if (index >= 0) next[index] = participant; else next.push(participant);
-  await saveLiveEventParticipants(next);
-  return participant;
+export async function publishLiveEventParticipantLocation({ liveEventId = '', hostId = '', capturedAt = new Date().toISOString(), lat, lng, latitude = lat, longitude = lng, speedKmh = 0, accuracyMeters = 0, isSharingEnabled = true }) {
+  const token = getClientSessionToken();
+  if (!hasRemote() || !token) throw new Error('An authenticated backend session is required to publish live locations.');
+  const result = await remotePostJson({
+    action: 'publishLiveEventParticipantLocation',
+    liveEventId, hostId, capturedAt, lat: latitude, lng: longitude, latitude, longitude, speedKmh, accuracyMeters, isSharingEnabled, token
+  });
+  if (result?.participant) return normalizeLiveEventParticipant(result.participant);
+  throw new Error(result?.error || 'Unable to publish live event location');
 }
