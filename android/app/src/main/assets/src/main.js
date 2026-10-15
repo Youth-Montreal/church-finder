@@ -502,7 +502,7 @@ function setupPublicForms() {
           : 'hostRequestCreateFailed');
       return;
     }
-    // The backend registration action atomically persists the account and request.
+    // The backend owns account and request persistence; the browser never writes request lists.
     state.hostRequests = await loadHostRequests();
     state.auditLog = await appendAuditLog({ action: 'title_request_submitted', label: data.hostName || 'host request' });
     elements.titleRequestForm.reset();
