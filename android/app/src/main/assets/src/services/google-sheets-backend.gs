@@ -118,7 +118,16 @@ function doGet(e) {
     return createResponse({ error: 'Authenticated read required' });
   }
 
-  const data = readResourceList(requestedResource);
+  let data = readResourceList(requestedResource);
+  if (requestedResource === 'hosts') {
+    data = data.map(function(host) {
+      const publicHost = Object.assign({}, host);
+      // Legacy access codes are no longer credentials and must never be public.
+      delete publicHost.hostPasscode;
+      delete publicHost.hostAccessCode;
+      return publicHost;
+    });
+  }
   const result = {};
   result[requestedResource] = data;
   return createResponse(result);
@@ -213,8 +222,15 @@ function bytesToHex(bytes) {
   }).join('');
 }
 
+const PASSWORD_HASH_ITERATIONS = 1200;
+
 function hashPassword(password, salt) {
-  return bytesToHex(Utilities.computeHmacSha256Signature(String(password) + ':' + String(salt), getAuthPepper()));
+  const pepper = getAuthPepper();
+  let digest = Utilities.computeHmacSha256Signature(String(password) + ':' + String(salt), pepper);
+  for (let iteration = 1; iteration < PASSWORD_HASH_ITERATIONS; iteration += 1) {
+    digest = Utilities.computeHmacSha256Signature(bytesToHex(digest) + ':' + String(salt), pepper);
+  }
+  return bytesToHex(digest);
 }
 
 function hashSessionToken(token) {
@@ -287,6 +303,72 @@ function sessionSnapshot(actor, token) {
   };
 }
 
+const LOGIN_RATE_LIMITS_PROPERTY = 'AUTH_LOGIN_RATE_LIMITS';
+
+function loginRateLimitKey(email) {
+  return hashSessionToken(normalizeAuthEmail(email));
+}
+
+function readLoginRateLimits() {
+  try {
+    const value = JSON.parse(PropertiesService.getScriptProperties().getProperty(LOGIN_RATE_LIMITS_PROPERTY) || '{}');
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function pruneLoginRateLimits(records, now) {
+  Object.keys(records).forEach(function(key) {
+    const record = records[key];
+    if (!record || !record.windowStartedAt || now - Number(record.windowStartedAt) > 15 * 60 * 1000) {
+      delete records[key];
+    }
+  });
+  const keys = Object.keys(records);
+  if (keys.length > 30) {
+    keys.sort(function(a, b) {
+      return Number(records[a].windowStartedAt || 0) - Number(records[b].windowStartedAt || 0);
+    });
+    keys.slice(0, keys.length - 30).forEach(function(key) { delete records[key]; });
+  }
+  return records;
+}
+
+function isLoginRateLimited(email) {
+  const properties = PropertiesService.getScriptProperties();
+  const now = Date.now();
+  const records = pruneLoginRateLimits(readLoginRateLimits(), now);
+  const key = loginRateLimitKey(email);
+  properties.setProperty(LOGIN_RATE_LIMITS_PROPERTY, JSON.stringify(records));
+  const record = records[key];
+  if (!record) return false;
+  if (record.lockedUntil && Number(record.lockedUntil) > now) return true;
+  return Number(record.attempts) >= 8;
+}
+
+function recordLoginFailure(email) {
+  const properties = PropertiesService.getScriptProperties();
+  const now = Date.now();
+  const records = pruneLoginRateLimits(readLoginRateLimits(), now);
+  const key = loginRateLimitKey(email);
+  let record = records[key];
+  if (!record || !record.windowStartedAt || now - Number(record.windowStartedAt) > 15 * 60 * 1000) {
+    record = { windowStartedAt: now, attempts: 0, lockedUntil: 0 };
+  }
+  record.attempts = Number(record.attempts || 0) + 1;
+  if (record.attempts >= 8) record.lockedUntil = now + 15 * 60 * 1000;
+  records[key] = record;
+  properties.setProperty(LOGIN_RATE_LIMITS_PROPERTY, JSON.stringify(pruneLoginRateLimits(records, now)));
+}
+
+function clearLoginFailures(email) {
+  const properties = PropertiesService.getScriptProperties();
+  const records = readLoginRateLimits();
+  delete records[loginRateLimitKey(email)];
+  properties.setProperty(LOGIN_RATE_LIMITS_PROPERTY, JSON.stringify(records));
+}
+
 function handleLogin(body) {
   return withScriptLock(function() {
     const email = normalizeAuthEmail(body.email);
@@ -295,18 +377,20 @@ function handleLogin(body) {
     if (!email || !password || (requestedRole !== 'adm' && requestedRole !== 'host')) {
       return { ok: false, error: 'invalid' };
     }
+    if (isLoginRateLimited(email)) return { ok: false, error: 'invalid' };
 
     const accounts = readResourceList('accounts');
     const index = accounts.findIndex(function(item) { return normalizeAuthEmail(item.email) === email; });
-    if (index < 0) return { ok: false, error: 'invalid' };
+    if (index < 0) { recordLoginFailure(email); return { ok: false, error: 'invalid' }; }
     const account = accounts[index];
-    if (account.role !== requestedRole) return { ok: false, error: 'invalid' };
-    if (requestedRole === 'adm' && !isAllowlistedAdmEmail(email)) return { ok: false, error: 'invalid' };
-    if (String(account.passwordHash || '') !== hashPassword(password, account.passwordSalt || '')) return { ok: false, error: 'invalid' };
+    if (account.role !== requestedRole) { recordLoginFailure(email); return { ok: false, error: 'invalid' }; }
+    if (requestedRole === 'adm' && !isAllowlistedAdmEmail(email)) { recordLoginFailure(email); return { ok: false, error: 'invalid' }; }
+    if (String(account.passwordHash || '') !== hashPassword(password, account.passwordSalt || '')) { recordLoginFailure(email); return { ok: false, error: 'invalid' }; }
     if (account.status !== 'active') {
       return { ok: false, error: account.status === 'pending' ? 'pending' : 'denied' };
     }
 
+    clearLoginFailures(email);
     const memberships = requestedRole === 'host' ? activeMembershipsForAccount(account.id) : [];
     if (requestedRole === 'host' && !memberships.length) return { ok: false, error: 'pending' };
 
@@ -375,7 +459,9 @@ function handleReadResource(body) {
   } else if (resource === 'liveEventParticipants' && !isAdm) {
     list = list.filter(function(item) { return hostIds.indexOf(item.hostId) >= 0; });
   } else if (resource === 'liveEvents') {
-    list = list.filter(function(item) { return item.status === 'active'; });
+    list = list.filter(function(item) {
+      return item.status === 'active' && (isAdm || hostIds.indexOf(item.createdByHostId) >= 0);
+    });
   }
 
   const result = { ok: true };
