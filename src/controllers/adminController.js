@@ -6,7 +6,6 @@ import { normalizeAddress, shortenAddress } from '../utils/address.js';
 import { dedupeHosts, findDuplicateHost } from '../utils/hostDedup.js';
 
 const todayDate = () => new Date().toISOString().slice(0, 10);
-const hostCode = () => `H-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 const defaultEvent = () => ({ title: '', date: todayDate(), time: '', type: '', ageGroup: 'all', recurrence: 'none' });
 
 function setCheckedValues(container, name, values) {
@@ -62,7 +61,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   const updateHostOptions = () => {
     if (!hostOptions) return;
     hostOptions.innerHTML = state.hosts
-      .filter((host) => host.hostPasscode || state.isAdminMode)
+      .filter((host) => state.isAdminMode || (state.isHostMode && (state.hostMemberships || []).some((membership) => membership.hostId === host.id && membership.status === 'active')))
       .map((host) => `<option value="${host.name}"></option>`)
       .join('');
   };
@@ -286,7 +285,6 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
               <button type="button" data-status="approved">${t(state, 'approve')}</button>
               <button type="button" class="secondary" data-status="denied">${t(state, 'deny')}</button>
             </div>
-            ${item.generatedHostCode ? `<p class="help-text"><strong>${t(state, 'hostPasscode')}:</strong> ${item.generatedHostCode}</p>` : ''}
           </article>
         `).join('')
       : `<p class="help-text">${t(state, 'noPendingHostRequests')}</p>`;
@@ -685,7 +683,6 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     const existingEvents = existing?.events || [];
     const host = {
       id: hostId,
-      hostPasscode: existing?.hostPasscode || hostCode(),
       name: state.editorMode === 'event' ? existing?.name || '' : formData.get('name').trim(),
       address: state.editorMode === 'event' ? existing?.address || '' : normalizeAddress(formData.get('address').trim()),
       googleMapsUrl: state.editorMode === 'event' ? existing?.googleMapsUrl || '' : formData.get('googleMapsUrl').trim(),
@@ -732,7 +729,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     renderEventManager();
     state.selectedHostId = host.id;
     renderHostDetails(host, startEditHost);
-    elements.workspaceStatus.textContent = `${t(state, 'hostSaved')} ${t(state, 'hostPasscode')}: ${host.hostPasscode}`;
+    elements.workspaceStatus.textContent = t(state, 'hostSaved');
     resetForm();
   });
 
