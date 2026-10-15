@@ -341,12 +341,18 @@ export async function retryPendingSync() {
   if (!hasRemote()) return getSyncState();
   const pending = readPendingSync();
   const entries = Object.entries(pending);
+  const actionOnlyResources = new Set(['accounts', 'reports', 'hostRequests', 'hostMemberships', 'liveEventParticipants']);
   for (const [resource, item] of entries) {
+    if (actionOnlyResources.has(resource)) {
+      // Never replay legacy whole-list writes to protected resources.
+      clearPending(resource);
+      continue;
+    }
     try {
       await remotePost(resource, item?.payload ?? []);
       clearPending(resource);
     } catch {
-      // Keep pending for future retries
+      // Keep other resources pending for future retries
     }
   }
   emitSyncState();
@@ -373,12 +379,20 @@ export function subscribeSyncState(listener) {
 
 export async function loginWithBackend({ email, password, role }) {
   if (!hasRemote() || !canAttemptRemote('session')) return { ok: false, error: 'backend_unavailable' };
-  return remotePostJson({ action: 'login', email, password, role });
+  try {
+    return await remotePostJson({ action: 'login', email, password, role });
+  } catch {
+    return { ok: false, error: 'backend_unavailable' };
+  }
 }
 
 export async function registerHostAccountWithBackend(data) {
   if (!hasRemote() || !canAttemptRemote('session')) return { ok: false, error: 'backend_unavailable' };
-  return remotePostJson({ action: 'registerHostAccount', ...data });
+  try {
+    return await remotePostJson({ action: 'registerHostAccount', ...data });
+  } catch {
+    return { ok: false, error: 'backend_unavailable' };
+  }
 }
 
 export async function verifyBackendSession(token) {
