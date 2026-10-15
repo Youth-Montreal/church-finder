@@ -1,7 +1,7 @@
 import { geocodeAddress, reverseGeocode, searchMontrealAddresses } from '../services/geocoding.js';
-import { appendAuditLog, saveHostMemberships, saveHosts, updateHostRequestStatus, updateReportStatus } from '../services/repository.js';
+import { appendAuditLog, loadHostMemberships, loadHostRequests, loadReports, moderateHostRequest, saveHosts, updateHostRequestStatus, updateReportStatus } from '../services/repository.js';
 import { t } from '../i18n.js';
-import { login, logout, getSession, activateHostByEmail, getHostAccountByEmail, setHostReviewStatusByEmail } from '../services/auth.js';
+import { login, logout } from '../services/auth.js';
 import { normalizeAddress, shortenAddress } from '../utils/address.js';
 import { dedupeHosts, findDuplicateHost } from '../utils/hostDedup.js';
 
@@ -402,7 +402,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
   elements.toggleHost.addEventListener('click', async () => {
     if (state.isHostMode) {
-      logout();
+      await logout();
       state.isHostMode = false;
       state.activeHostId = null;
       setWorkspaceVisibility();
@@ -415,14 +415,22 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     const email = prompt(t(state, 'enterEmail'));
     const password = prompt(t(state, 'enterPassword'));
     if (!email || !password) return;
-    const result = login({ email, password, role: 'host' });
+    const result = await login({ email, password, role: 'host' });
     if (!result.ok) {
       elements.workspaceStatus.textContent = t(state, result.error === 'pending' ? 'hostAccountPending' : 'loginFailed');
       return;
     }
-    const account = getHostAccountByEmail(email);
-    const membership = (state.hostMemberships || []).find((item) => item.accountId === account?.id && item.status !== 'revoked');
+    const [hostMemberships, reports] = await Promise.all([loadHostMemberships(), loadReports()]);
+    state.hostMemberships = hostMemberships;
+    state.reports = reports;
+    const memberships = result.session.hostMemberships || [];
+    const membership = memberships.find((item) => item.status === 'active') || memberships[0];
     const host = state.hosts.find((item) => item.id === membership?.hostId);
+    if (!membership || !host) {
+      await logout();
+      elements.workspaceStatus.textContent = t(state, 'loginFailed');
+      return;
+    }
     state.isHostMode = true;
     state.activeHostId = host?.id || null;
     state.isAdminMode = false;
@@ -432,9 +440,9 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     renderModeration();
   });
 
-  elements.toggleAdmin.addEventListener('click', () => {
+  elements.toggleAdmin.addEventListener('click', async () => {
     if (state.isAdminMode) {
-      logout();
+      await logout();
       state.isAdminMode = false;
       setWorkspaceVisibility();
       renderHostManager();
@@ -445,11 +453,17 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     const email = prompt(t(state, 'enterEmail'));
     const password = prompt(t(state, 'enterPassword'));
     if (!email || !password) return;
-    const result = login({ email, password, role: 'admin' });
+    const result = await login({ email, password, role: 'admin' });
     if (!result.ok) {
       elements.workspaceStatus.textContent = t(state, 'loginFailed');
       return;
     }
+    const [hostRequests, hostMemberships, reports] = await Promise.all([
+      loadHostRequests(), loadHostMemberships(), loadReports()
+    ]);
+    state.hostRequests = hostRequests;
+    state.hostMemberships = hostMemberships;
+    state.reports = reports;
 
     state.isAdminMode = true;
     state.isHostMode = false;
@@ -572,42 +586,12 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     }
 
     if (resource === 'hostRequest') {
-      const request = state.hostRequests.find((item) => item.id === id);
-      let generatedHostCode = '';
-      let statusPatch = {};
-      if (status === 'denied') setHostReviewStatusByEmail(request?.requesterEmail || request?.email, 'denied');
-      if (status === 'approved') {
-        generatedHostCode = hostCode();
-        const isJoinExistingHost = request?.type === 'join_existing_host';
-        const targetHostId = isJoinExistingHost ? request.targetHostId : (request?.hostId || crypto.randomUUID());
-        const existingHost = state.hosts.find((item) => item.id === targetHostId);
-        if (!isJoinExistingHost && !existingHost) state.hosts.push({
-          id: targetHostId,
-          hostPasscode: generatedHostCode,
-          name: request?.hostName || t(state, 'newHostName'),
-          address: '',
-          googleMapsUrl: '',
-          googlePlaceId: '',
-          lat: 45.5017,
-          lng: -73.5673,
-          languages: [],
-          website: '',
-          instagram: '',
-          facebook: '',
-          whatsapp: '',
-          events: []
-        });
-        const accountId = request?.requesterAccountId || request?.accountId;
-        state.hostMemberships = state.hostMemberships || [];
-        if (accountId && targetHostId && !state.hostMemberships.find((m) => m.accountId === accountId && m.hostId === targetHostId)) {
-          state.hostMemberships.push({ id: crypto.randomUUID(), accountId, hostId: targetHostId, role: 'manager', status: 'active', createdAt: new Date().toISOString() });
-          await saveHostMemberships(state.hostMemberships);
-        }
-        activateHostByEmail(request?.requesterEmail || request?.email);
-        statusPatch = { generatedHostCode: isJoinExistingHost ? '' : generatedHostCode, targetHostId };
-        if (!isJoinExistingHost && !await saveHostsWithFeedback()) return;
-      }
-      state.hostRequests = await updateHostRequestStatus(id, status === 'approved' ? 'approved' : status, statusPatch);
+      // Approval is one backend transaction: it creates a host only for new_host
+      // requests and upserts the account/host membership without duplicate pins.
+      const result = await moderateHostRequest(id, status);
+      state.hostRequests = result.hostRequests || await loadHostRequests();
+      state.hostMemberships = result.hostMemberships || await loadHostMemberships();
+      state.hosts = result.hosts || state.hosts;
       state.auditLog = await appendAuditLog({ action: `host_request_${status}`, label: id });
       renderHostManager();
       elements.workspaceStatus.textContent = t(state, 'moderationUpdated');
