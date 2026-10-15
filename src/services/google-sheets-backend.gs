@@ -222,8 +222,15 @@ function bytesToHex(bytes) {
   }).join('');
 }
 
+const PASSWORD_HASH_ITERATIONS = 1200;
+
 function hashPassword(password, salt) {
-  return bytesToHex(Utilities.computeHmacSha256Signature(String(password) + ':' + String(salt), getAuthPepper()));
+  const pepper = getAuthPepper();
+  let digest = Utilities.computeHmacSha256Signature(String(password) + ':' + String(salt), pepper);
+  for (let iteration = 1; iteration < PASSWORD_HASH_ITERATIONS; iteration += 1) {
+    digest = Utilities.computeHmacSha256Signature(bytesToHex(digest) + ':' + String(salt), pepper);
+  }
+  return bytesToHex(digest);
 }
 
 function hashSessionToken(token) {
@@ -296,51 +303,70 @@ function sessionSnapshot(actor, token) {
   };
 }
 
+const LOGIN_RATE_LIMITS_PROPERTY = 'AUTH_LOGIN_RATE_LIMITS';
+
 function loginRateLimitKey(email) {
-  return 'AUTH_LOGIN_FAILURES_' + hashSessionToken(normalizeAuthEmail(email));
+  return hashSessionToken(normalizeAuthEmail(email));
+}
+
+function readLoginRateLimits() {
+  try {
+    const value = JSON.parse(PropertiesService.getScriptProperties().getProperty(LOGIN_RATE_LIMITS_PROPERTY) || '{}');
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function pruneLoginRateLimits(records, now) {
+  Object.keys(records).forEach(function(key) {
+    const record = records[key];
+    if (!record || !record.windowStartedAt || now - Number(record.windowStartedAt) > 15 * 60 * 1000) {
+      delete records[key];
+    }
+  });
+  const keys = Object.keys(records);
+  if (keys.length > 500) {
+    keys.sort(function(a, b) {
+      return Number(records[a].windowStartedAt || 0) - Number(records[b].windowStartedAt || 0);
+    });
+    keys.slice(0, keys.length - 500).forEach(function(key) { delete records[key]; });
+  }
+  return records;
 }
 
 function isLoginRateLimited(email) {
   const properties = PropertiesService.getScriptProperties();
-  const key = loginRateLimitKey(email);
-  const raw = properties.getProperty(key);
-  if (!raw) return false;
-  let record;
-  try {
-    record = JSON.parse(raw);
-  } catch (error) {
-    properties.deleteProperty(key);
-    return false;
-  }
   const now = Date.now();
+  const records = pruneLoginRateLimits(readLoginRateLimits(), now);
+  const key = loginRateLimitKey(email);
+  properties.setProperty(LOGIN_RATE_LIMITS_PROPERTY, JSON.stringify(records));
+  const record = records[key];
+  if (!record) return false;
   if (record.lockedUntil && Number(record.lockedUntil) > now) return true;
-  if (!record.windowStartedAt || now - Number(record.windowStartedAt) > 15 * 60 * 1000) {
-    properties.deleteProperty(key);
-    return false;
-  }
   return Number(record.attempts) >= 8;
 }
 
 function recordLoginFailure(email) {
   const properties = PropertiesService.getScriptProperties();
-  const key = loginRateLimitKey(email);
   const now = Date.now();
-  let record;
-  try {
-    record = JSON.parse(properties.getProperty(key) || 'null');
-  } catch (error) {
-    record = null;
-  }
+  const records = pruneLoginRateLimits(readLoginRateLimits(), now);
+  const key = loginRateLimitKey(email);
+  let record = records[key];
   if (!record || !record.windowStartedAt || now - Number(record.windowStartedAt) > 15 * 60 * 1000) {
     record = { windowStartedAt: now, attempts: 0, lockedUntil: 0 };
   }
   record.attempts = Number(record.attempts || 0) + 1;
   if (record.attempts >= 8) record.lockedUntil = now + 15 * 60 * 1000;
-  properties.setProperty(key, JSON.stringify(record));
+  records[key] = record;
+  properties.setProperty(LOGIN_RATE_LIMITS_PROPERTY, JSON.stringify(pruneLoginRateLimits(records, now)));
 }
 
 function clearLoginFailures(email) {
-  PropertiesService.getScriptProperties().deleteProperty(loginRateLimitKey(email));
+  const properties = PropertiesService.getScriptProperties();
+  const records = readLoginRateLimits();
+  delete records[loginRateLimitKey(email)];
+  properties.setProperty(LOGIN_RATE_LIMITS_PROPERTY, JSON.stringify(records));
 }
 
 function handleLogin(body) {
