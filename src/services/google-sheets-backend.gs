@@ -118,7 +118,16 @@ function doGet(e) {
     return createResponse({ error: 'Authenticated read required' });
   }
 
-  const data = readResourceList(requestedResource);
+  let data = readResourceList(requestedResource);
+  if (requestedResource === 'hosts') {
+    data = data.map(function(host) {
+      const publicHost = Object.assign({}, host);
+      // Legacy access codes are no longer credentials and must never be public.
+      delete publicHost.hostPasscode;
+      delete publicHost.hostAccessCode;
+      return publicHost;
+    });
+  }
   const result = {};
   result[requestedResource] = data;
   return createResponse(result);
@@ -375,7 +384,9 @@ function handleReadResource(body) {
   } else if (resource === 'liveEventParticipants' && !isAdm) {
     list = list.filter(function(item) { return hostIds.indexOf(item.hostId) >= 0; });
   } else if (resource === 'liveEvents') {
-    list = list.filter(function(item) { return item.status === 'active'; });
+    list = list.filter(function(item) {
+      return item.status === 'active' && (isAdm || hostIds.indexOf(item.createdByHostId) >= 0);
+    });
   }
 
   const result = { ok: true };
