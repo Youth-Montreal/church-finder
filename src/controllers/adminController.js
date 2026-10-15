@@ -1,7 +1,7 @@
 import { geocodeAddress, reverseGeocode, searchMontrealAddresses } from '../services/geocoding.js';
 import { appendAuditLog, loadHostMemberships, loadHostRequests, loadReports, moderateHostRequest, saveHosts, updateHostRequestStatus, updateReportStatus } from '../services/repository.js';
 import { t } from '../i18n.js';
-import { login, logout } from '../services/auth.js';
+import { login, logout, restoreSession } from '../services/auth.js';
 import { normalizeAddress, shortenAddress } from '../utils/address.js';
 import { dedupeHosts, findDuplicateHost } from '../utils/hostDedup.js';
 
@@ -743,6 +743,44 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   renderHostManager();
   renderEventManager();
   renderModeration();
+
+  // A persisted token is only a hint: the backend must validate it before any
+  // ADM/HOST mode is restored after refresh.
+  restoreSession().then(async (session) => {
+    if (!session) return;
+    if (session.role === 'adm') {
+      const [hostRequests, hostMemberships, reports] = await Promise.all([
+        loadHostRequests(), loadHostMemberships(), loadReports()
+      ]);
+      state.hostRequests = hostRequests;
+      state.hostMemberships = hostMemberships;
+      state.reports = reports;
+      state.isAdminMode = true;
+      state.isHostMode = false;
+      state.activeHostId = null;
+    } else if (session.role === 'host') {
+      const [hostMemberships, reports] = await Promise.all([loadHostMemberships(), loadReports()]);
+      state.hostMemberships = hostMemberships;
+      state.reports = reports;
+      const membership = (session.hostMemberships || []).find((item) => item.status === 'active') || (session.hostMemberships || [])[0];
+      const host = state.hosts.find((item) => item.id === membership?.hostId);
+      if (!membership || !host) {
+        await logout();
+        return;
+      }
+      state.isHostMode = true;
+      state.isAdminMode = false;
+      state.activeHostId = host.id;
+    } else {
+      return;
+    }
+    setWorkspaceVisibility();
+    renderHostManager();
+    renderEventManager();
+    renderModeration();
+  }).catch(() => {
+    // Invalid or unavailable backend sessions must never unlock the workspace.
+  });
 
   return { startEditHost, renderHostManager, renderModeration };
 }
