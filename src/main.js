@@ -1,5 +1,5 @@
 import { LANGUAGE_KEY, STORAGE_KEY } from './config.js';
-import { appendAuditLog, getConfiguredSyncUrl, getSyncState, loadAuditLog, loadHosts, loadHostRequests, loadHostMemberships, loadReports, retryPendingSync, saveHosts, setConfiguredSyncUrl, subscribeSyncState, submitHostRequest, submitReport } from './services/repository.js';
+import { appendAuditLog, getConfiguredSyncUrl, getSyncState, loadAuditLog, loadHosts, loadHostRequests, loadHostMemberships, loadReports, retryPendingSync, saveHosts, setConfiguredSyncUrl, subscribeSyncState, submitReport } from './services/repository.js';
 import { registerHostAccount } from './services/auth.js';
 import { createMap, renderMarkers, resetMapView } from './ui/mapView.js';
 import { renderHostDetails } from './ui/detailsView.js';
@@ -493,7 +493,7 @@ function setupPublicForms() {
       elements.titleRequestStatus.textContent = t(state, 'targetHostRequired');
       return;
     }
-    const registration = registerHostAccount(data, state.hostRequests);
+    const registration = await registerHostAccount(data, state.hostRequests);
     if (!registration.ok) {
       elements.titleRequestStatus.textContent = t(state, registration.error === 'blocked'
         ? 'hostRequestRejectedRecently'
@@ -502,16 +502,7 @@ function setupPublicForms() {
           : 'hostRequestCreateFailed');
       return;
     }
-    await submitHostRequest({
-      id: crypto.randomUUID(),
-      ...data,
-      type: data.type || 'new_host',
-      targetHostId: data.type === 'join_existing_host' ? data.targetHostId : '',
-      requesterAccountId: registration.accountId,
-      requesterEmail: data.email,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    });
+    // The backend registration action atomically persists the account and request.
     state.hostRequests = await loadHostRequests();
     state.auditLog = await appendAuditLog({ action: 'title_request_submitted', label: data.hostName || 'host request' });
     elements.titleRequestForm.reset();
