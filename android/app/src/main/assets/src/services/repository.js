@@ -341,12 +341,18 @@ export async function retryPendingSync() {
   if (!hasRemote()) return getSyncState();
   const pending = readPendingSync();
   const entries = Object.entries(pending);
+  const actionOnlyResources = new Set(['accounts', 'reports', 'hostRequests', 'hostMemberships', 'liveEventParticipants']);
   for (const [resource, item] of entries) {
+    if (actionOnlyResources.has(resource)) {
+      // Never replay legacy whole-list writes to protected resources.
+      clearPending(resource);
+      continue;
+    }
     try {
       await remotePost(resource, item?.payload ?? []);
       clearPending(resource);
     } catch {
-      // Keep pending for future retries
+      // Keep other resources pending for future retries
     }
   }
   emitSyncState();
@@ -373,12 +379,20 @@ export function subscribeSyncState(listener) {
 
 export async function loginWithBackend({ email, password, role }) {
   if (!hasRemote() || !canAttemptRemote('session')) return { ok: false, error: 'backend_unavailable' };
-  return remotePostJson({ action: 'login', email, password, role });
+  try {
+    return await remotePostJson({ action: 'login', email, password, role });
+  } catch {
+    return { ok: false, error: 'backend_unavailable' };
+  }
 }
 
 export async function registerHostAccountWithBackend(data) {
   if (!hasRemote() || !canAttemptRemote('session')) return { ok: false, error: 'backend_unavailable' };
-  return remotePostJson({ action: 'registerHostAccount', ...data });
+  try {
+    return await remotePostJson({ action: 'registerHostAccount', ...data });
+  } catch {
+    return { ok: false, error: 'backend_unavailable' };
+  }
 }
 
 export async function verifyBackendSession(token) {
@@ -427,8 +441,8 @@ export async function loadHostMemberships() {
   return loadList('hostMemberships', HOST_MEMBERSHIPS_KEY);
 }
 
-export async function saveHostMemberships(hostMemberships) {
-  await saveList('hostMemberships', HOST_MEMBERSHIPS_KEY, hostMemberships);
+export async function saveHostMemberships(_hostMemberships) {
+  throw new Error('Memberships are managed by authenticated backend moderation actions.');
 }
 
 export async function submitReport(report) {
@@ -443,10 +457,8 @@ export async function submitReport(report) {
   return report;
 }
 
-export async function submitHostRequest(hostRequest) {
-  const list = await loadHostRequests();
-  list.push(normalizeEntry(hostRequest));
-  await saveList('hostRequests', HOST_REQUESTS_KEY, list);
+export async function submitHostRequest(_hostRequest) {
+  throw new Error('Host requests must be created atomically with backend account registration.');
 }
 
 export async function updateReportStatus(id, status) {
@@ -480,25 +492,15 @@ export async function appendAuditLog(entry) {
 }
 
 
-export async function verifySessionToken({ role, token = '', accessCode = '' }) {
-  if (!canAttemptRemote('session')) return { valid: false };
-  try {
-    const result = await remotePostJson({ action: 'verifySession', role, token, accessCode });
-    return { valid: Boolean(result?.valid), accountId: result?.accountId || null, isAdm: Boolean(result?.isAdm), hostMembership: result?.hostMembership || null };
-  } catch {
-    return { valid: false };
-  }
-}
-
-export async function exchangeHostAccessCode(accessCode) {
-  if (!canAttemptRemote('session')) return null;
-  try {
-    const result = await remotePostJson({ action: 'exchangeHostAccessCode', accessCode });
-    if (!result?.token) return null;
-    return { token: result.token, accountId: result.accountId || null, hostMembership: result.hostMembership || null };
-  } catch {
-    return null;
-  }
+export async function verifySessionToken({ token = '' }) {
+  const result = await verifyBackendSession(token);
+  if (!result?.role || !result?.accountId) return { valid: false };
+  return {
+    valid: true,
+    accountId: result.accountId,
+    isAdm: result.role === 'adm',
+    hostMemberships: result.hostMemberships || []
+  };
 }
 
 
@@ -514,26 +516,16 @@ export async function loadLiveEventParticipants() {
   return loadList('liveEventParticipants', LIVE_EVENT_PARTICIPANTS_KEY).then((list) => list.map(normalizeLiveEventParticipant));
 }
 
-export async function saveLiveEventParticipants(participants) {
-  await saveList('liveEventParticipants', LIVE_EVENT_PARTICIPANTS_KEY, (participants || []).map(normalizeLiveEventParticipant));
+export async function saveLiveEventParticipants(_participants) {
+  throw new Error('Live event participants are managed by authenticated backend actions.');
 }
 
 export async function createLiveEvent(liveEvent) {
-  if (canAttemptRemote('liveEvents')) {
-    try {
-      const result = await remotePostJson({ action: 'createLiveEvent', liveEvent });
-      if (result?.liveEvent) return normalizeLiveEvent(result.liveEvent);
-    } catch (error) {
-      markPending('liveEvents', await loadLiveEvents(), error instanceof Error ? error.message : String(error));
-    }
-  }
-  const liveEvents = await loadLiveEvents();
-  const nextLiveEvent = normalizeLiveEvent(liveEvent);
-  nextLiveEvent.titleBase = nextLiveEvent.titleBase || nextLiveEvent.title;
-  nextLiveEvent.title = resolveUniqueLiveEventTitle(nextLiveEvent.titleBase, liveEvents, nextLiveEvent.id);
-  liveEvents.push(nextLiveEvent);
-  await saveLiveEvents(liveEvents);
-  return nextLiveEvent;
+  const token = getClientSessionToken();
+  if (!hasRemote() || !token) throw new Error('An authenticated backend session is required to create a live event.');
+  const result = await remotePostJson({ action: 'createLiveEvent', liveEvent, token });
+  if (result?.liveEvent) return normalizeLiveEvent(result.liveEvent);
+  throw new Error(result?.error || 'Unable to create live event');
 }
 
 export async function joinLiveEvent({ liveEventId = '', joinCode = '', hostId = '', isLead = false }) {
