@@ -584,7 +584,7 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     }
 
     if (resource === 'hostRequest') {
-      // Approval is one backend transaction: it creates a host only for new_host
+      // Approval is one backend moderation action: it creates a host only for new_host
       // requests and upserts the account/host membership without duplicate pins.
       const result = await moderateHostRequest(id, status);
       state.hostRequests = result.hostRequests || await loadHostRequests();
