@@ -21,6 +21,13 @@ const REMOTE_TIMEOUT_MS = 8000;
 const REMOTE_COOLDOWN_MS = 30000;
 const remoteBlockedUntilByResource = new Map();
 
+function sanitizeHostRecord(host) {
+  const safeHost = { ...(host || {}) };
+  delete safeHost.hostPasscode;
+  delete safeHost.hostAccessCode;
+  return safeHost;
+}
+
 function getRemoteUrl() {
   if (SHEETS_WEB_APP_URL && SHEETS_WEB_APP_URL.trim()) return SHEETS_WEB_APP_URL.trim();
   if (typeof window !== 'undefined') {
@@ -314,21 +321,23 @@ export async function loadHosts() {
     try {
       const data = await remoteGet('hosts');
       if (Array.isArray(data?.hosts)) {
-        saveLocalHosts(data.hosts);
-        return data.hosts;
+        const safeHosts = data.hosts.map(sanitizeHostRecord);
+        saveLocalHosts(safeHosts);
+        return safeHosts;
       }
     } catch {
       // fallback to local cache
     }
   }
-  return loadLocalHosts();
+  return (loadLocalHosts() || []).map(sanitizeHostRecord);
 }
 
 export async function saveHosts(hosts) {
-  saveLocalHosts(hosts);
+  const safeHosts = (hosts || []).map(sanitizeHostRecord);
+  saveLocalHosts(safeHosts);
   if (canAttemptRemote('hosts')) {
     try {
-      await remotePost('hosts', hosts);
+      await remotePost('hosts', safeHosts);
       clearPending('hosts');
     } catch (error) {
       markPending('hosts', hosts, error instanceof Error ? error.message : String(error));
