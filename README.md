@@ -118,15 +118,25 @@ Migration tip (required when moving from old builds):
 For POST writes, this project now sends a **simple request body** (no custom JSON header) to avoid browser CORS preflight failures against Apps Script web apps.  
 If you reintroduce custom `Content-Type: application/json`, some deployments may stop accepting browser writes.
 
-### Authentication transition note
+### Authentication and authorization
 
-- Host/ADM passcode prompts are replaced by email/password login prompts.
-- ADM login is restricted to an allowlist of ADM emails in `src/services/auth.js`.
-- Host signup now creates a host account and automatically submits a canonical `hostRequest`. Applicants can request a `new_host` or `join_existing_host` by searching the existing host name/address.
-- Host requests persist `type`, `targetHostId`, `requesterAccountId`/`requesterEmail`, and `status` so ADM review can distinguish new registrations from membership joins.
-- Host account activation happens only after ADM approval of the host request. Approving `join_existing_host` creates a `hostMembership` for the requester and existing host without creating another host location entry.
-- Rejected host emails are blocked from re-requesting the same target host for 30 days, and only one pending request per email per target host is allowed.
-- Current implementation is client-side/localStorage based; production rollout should move credential checks to a dedicated backend identity provider.
+- Email/password credentials, account roles, account status, and sessions are owned by the Apps Script backend; the browser stores only a backend-issued opaque session token.
+- `src/services/auth.js` never verifies passwords or decides ADM eligibility in the browser. Workspaces are restored only after `verifySession` accepts the token.
+- The server-side ADM allowlist exists only in `src/services/google-sheets-backend.gs`. Never copy it into frontend JavaScript, HTML, Android web assets, or config.
+- Host signup calls one backend action that validates the request, creates/updates the `account`, and stores the `hostRequest` together. Existing accounts must prove the existing password.
+- Approving a `join_existing_host` request only upserts the `hostMembership` for the existing `host`. Only a `new_host` approval creates a host location, and duplicate membership rows for the same account/host pair are collapsed.
+- Sensitive resources (`account`, `report`, `hostMembership`, `hostRequest`, `liveEvent`, and `liveEventParticipant`) are not returned by public GET requests. Private reads, host edits, report moderation, host approval, and live-event collaboration must use backend actions validated against an unexpired session.
+- When the backend is unreachable, authentication fails closed. Cached browser records are not used to restore ADM/HOST authorization.
+
+#### One-time Apps Script authentication setup
+
+1. Deploy the updated `src/services/google-sheets-backend.gs` as a new Apps Script web-app deployment and update `SHEETS_WEB_APP_URL` in `src/config.js` to that deployment.
+2. In the Apps Script editor, run `setup` to ensure canonical sheets exist, then run `initializeAuthPepper` once. Keep the generated `AUTH_PEPPER` in Script Properties; never place it in frontend config.
+3. To provision an ADM, add the Script Property `ADM_BOOTSTRAP_CREDENTIALS` as JSON, for example `{"email":"allowlisted-admin@example.com","password":"use-a-long-unique-password","fullName":"Admin"}`. Run `provisionAdmFromScriptProperties`. It rejects emails outside the server-side allowlist and deletes the bootstrap property after success. Repeat explicitly for each allowlisted ADM, using a unique password.
+4. Redeploy the Apps Script web app after backend changes. The deployed endpoint does not update just because the source file in Git changed.
+5. Existing browser-only passwords and cached sessions are intentionally not migrated as trusted identities. Each ADM must be provisioned server-side; hosts must register through the backend and have a request approved.
+
+Do not expose the `accounts` sheet through public GET. The backend stores a random per-account password salt, a password HMAC derived with the server-only pepper, and only hashes of random session tokens. Session lifetime is 14 days; logout revokes the server-side session.
 
 ### Startup sync deadlock guard
 
@@ -290,18 +300,19 @@ This repository now includes:
 
 ## Backend identity and canonical entities
 
-Auth is now backend-validated and localStorage is no longer treated as the authority for ADM/HOST access decisions.
+Auth and authorization are validated by the backend. The canonical entity names map to the Apps Script resource keys as follows:
 
-Canonical backend entities used by the Apps Script backend and sync contract:
-- `account`
-- `host`
-- `hostMembership`
-- `hostRequest`
-- `liveEvent`
-- `liveEventParticipant`
-- `report`
+| Canonical entity | Apps Script resource / sheet |
+| --- | --- |
+| `account` | `accounts` |
+| `host` | `hosts` |
+| `hostMembership` | `hostMemberships` |
+| `hostRequest` | `hostRequests` |
+| `liveEvent` | `liveEvents` |
+| `liveEventParticipant` | `liveEventParticipants` |
+| `report` | `reports` |
 
-`hostMembership` supports many accounts managing one host without creating duplicate host map pins. Approved memberships all render the same host profile in the workspace; only `new_host` approvals create a new host location entry. ADM authority is enforced with a server-side allowlist in Apps Script (`google-sheets-backend.gs`).
+`hostMembership` is a many-to-many relation between accounts and hosts: multiple accounts can manage the same host, and one account can manage more than one host. Approval is server-side and idempotently upserts the account/host pair; it does not create duplicate host pins for membership requests.
 
 ### Live event backend contract
 
