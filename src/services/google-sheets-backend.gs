@@ -435,7 +435,7 @@ function handleRegisterHostAccount(body) {
     const password = String(body.password || '');
     const type = body.type === 'join_existing_host' ? 'join_existing_host' : 'new_host';
     const targetHostId = type === 'join_existing_host' ? String(body.targetHostId || '').trim() : '';
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || password.length < 8) return { ok: false, error: 'invalid' };
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 8) return { ok: false, error: 'invalid' };
     getAuthPepper();
 
     if (type === 'join_existing_host' && !readResourceList('hosts').some(function(host) { return host.id === targetHostId; })) {
