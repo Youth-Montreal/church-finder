@@ -123,7 +123,7 @@ If you reintroduce custom `Content-Type: application/json`, some deployments may
 - Email/password credentials, account roles, account status, and sessions are owned by the Apps Script backend; the browser stores only a backend-issued opaque session token.
 - `src/services/auth.js` never verifies passwords or decides ADM eligibility in the browser. Workspaces are restored only after `verifySession` accepts the token.
 - The server-side ADM allowlist exists only in `src/services/google-sheets-backend.gs`. Never copy it into frontend JavaScript, HTML, Android web assets, or config.
-- Host signup calls one backend action that validates the request, creates/updates the `account`, and stores the `hostRequest` together. Existing accounts must prove the existing password.
+- Host signup calls one backend action that validates the request and persists the `account` plus associated `hostRequest`; the browser never writes either protected dataset. Existing accounts must prove the existing password.
 - Approving a `join_existing_host` request only upserts the `hostMembership` for the existing `host`. Only a `new_host` approval creates a host location, and duplicate membership rows for the same account/host pair are collapsed.
 - Sensitive resources (`account`, `report`, `hostMembership`, `hostRequest`, `liveEvent`, and `liveEventParticipant`) are not returned by public GET requests. Private reads, host edits, report moderation, host approval, and live-event collaboration must use backend actions validated against an unexpired session.
 - When the backend is unreachable, authentication fails closed. Cached browser records are not used to restore ADM/HOST authorization.
