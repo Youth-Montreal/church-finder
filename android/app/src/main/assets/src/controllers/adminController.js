@@ -1,7 +1,7 @@
 import { geocodeAddress, reverseGeocode, searchMontrealAddresses } from '../services/geocoding.js';
-import { appendAuditLog, saveHosts, updateHostRequestStatus, updateReportStatus } from '../services/repository.js';
+import { appendAuditLog, loadHostMemberships, loadHostRequests, loadReports, moderateHostRequest, saveHosts, updateHostRequestStatus, updateReportStatus } from '../services/repository.js';
 import { t } from '../i18n.js';
-import { login, logout, getSession, activateHostByEmail } from '../services/auth.js';
+import { login, logout, restoreSession } from '../services/auth.js';
 import { normalizeAddress, shortenAddress } from '../utils/address.js';
 import { dedupeHosts, findDuplicateHost } from '../utils/hostDedup.js';
 
@@ -276,7 +276,9 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
       ? hostRequests.map((item) => `
           <article class="queue-item">
             <p><strong>${item.hostName || item.organization || item.fullName}</strong></p>
+            <p>${item.type === 'join_existing_host' ? t(state, 'joinExistingHost') : t(state, 'newHostRequest')}</p>
             <p>${item.position || ''} · ${item.phone || ''}</p>
+            <p>${item.targetHostId ? `${t(state, 'targetHostSearch')}: ${(state.hosts.find((host) => host.id === item.targetHostId)?.name || item.targetHostId)}` : ''}</p>
             <p>${item.message || item.details || ''}</p>
             <div class="queue-actions" data-id="${item.id}" data-resource="hostRequest">
               <button type="button" data-status="pending">${t(state, 'statusPending')}</button>
@@ -398,9 +400,9 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
 
   elements.addHostButton.addEventListener('click', () => startEditHost());
 
-  elements.toggleHost.addEventListener('click', () => {
+  elements.toggleHost.addEventListener('click', async () => {
     if (state.isHostMode) {
-      logout();
+      await logout();
       state.isHostMode = false;
       state.activeHostId = null;
       setWorkspaceVisibility();
@@ -413,12 +415,22 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     const email = prompt(t(state, 'enterEmail'));
     const password = prompt(t(state, 'enterPassword'));
     if (!email || !password) return;
-    const result = login({ email, password, role: 'host' });
+    const result = await login({ email, password, role: 'host' });
     if (!result.ok) {
       elements.workspaceStatus.textContent = t(state, result.error === 'pending' ? 'hostAccountPending' : 'loginFailed');
       return;
     }
-    const host = state.hosts.find((item) => String(item.contactEmail || '').toLowerCase() === String(email).toLowerCase());
+    const [hostMemberships, reports] = await Promise.all([loadHostMemberships(), loadReports()]);
+    state.hostMemberships = hostMemberships;
+    state.reports = reports;
+    const memberships = result.session.hostMemberships || [];
+    const membership = memberships.find((item) => item.status === 'active') || memberships[0];
+    const host = state.hosts.find((item) => item.id === membership?.hostId);
+    if (!membership || !host) {
+      await logout();
+      elements.workspaceStatus.textContent = t(state, 'loginFailed');
+      return;
+    }
     state.isHostMode = true;
     state.activeHostId = host?.id || null;
     state.isAdminMode = false;
@@ -428,9 +440,9 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     renderModeration();
   });
 
-  elements.toggleAdmin.addEventListener('click', () => {
+  elements.toggleAdmin.addEventListener('click', async () => {
     if (state.isAdminMode) {
-      logout();
+      await logout();
       state.isAdminMode = false;
       setWorkspaceVisibility();
       renderHostManager();
@@ -441,11 +453,17 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     const email = prompt(t(state, 'enterEmail'));
     const password = prompt(t(state, 'enterPassword'));
     if (!email || !password) return;
-    const result = login({ email, password, role: 'admin' });
+    const result = await login({ email, password, role: 'admin' });
     if (!result.ok) {
       elements.workspaceStatus.textContent = t(state, 'loginFailed');
       return;
     }
+    const [hostRequests, hostMemberships, reports] = await Promise.all([
+      loadHostRequests(), loadHostMemberships(), loadReports()
+    ]);
+    state.hostRequests = hostRequests;
+    state.hostMemberships = hostMemberships;
+    state.reports = reports;
 
     state.isAdminMode = true;
     state.isHostMode = false;
@@ -568,32 +586,12 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
     }
 
     if (resource === 'hostRequest') {
-      let generatedHostCode = '';
-      if (status === 'approved') {
-        generatedHostCode = hostCode();
-        state.hosts.push({
-          id: crypto.randomUUID(),
-          hostPasscode: generatedHostCode,
-          name: state.hostRequests.find((item) => item.id === id)?.hostName || t(state, 'newHostName'),
-          address: '',
-          googleMapsUrl: '',
-          googlePlaceId: '',
-          lat: 45.5017,
-          lng: -73.5673,
-          languages: [],
-          website: '',
-          instagram: '',
-          facebook: '',
-          whatsapp: '',
-          events: []
-        });
-        if (!await saveHostsWithFeedback()) return;
-      }
-      state.hostRequests = await updateHostRequestStatus(id, status === 'approved' ? 'approved' : status);
-      if (generatedHostCode) {
-        const request = state.hostRequests.find((item) => item.id === id);
-        if (request) request.generatedHostCode = generatedHostCode;
-      }
+      // Approval is one backend transaction: it creates a host only for new_host
+      // requests and upserts the account/host membership without duplicate pins.
+      const result = await moderateHostRequest(id, status);
+      state.hostRequests = result.hostRequests || await loadHostRequests();
+      state.hostMemberships = result.hostMemberships || await loadHostMemberships();
+      state.hosts = result.hosts || state.hosts;
       state.auditLog = await appendAuditLog({ action: `host_request_${status}`, label: id });
       renderHostManager();
       elements.workspaceStatus.textContent = t(state, 'moderationUpdated');
@@ -745,6 +743,44 @@ export function attachAdminController({ state, map, elements, renderMarkers, ren
   renderHostManager();
   renderEventManager();
   renderModeration();
+
+  // A persisted token is only a hint: the backend must validate it before any
+  // ADM/HOST mode is restored after refresh.
+  restoreSession().then(async (session) => {
+    if (!session) return;
+    if (session.role === 'adm') {
+      const [hostRequests, hostMemberships, reports] = await Promise.all([
+        loadHostRequests(), loadHostMemberships(), loadReports()
+      ]);
+      state.hostRequests = hostRequests;
+      state.hostMemberships = hostMemberships;
+      state.reports = reports;
+      state.isAdminMode = true;
+      state.isHostMode = false;
+      state.activeHostId = null;
+    } else if (session.role === 'host') {
+      const [hostMemberships, reports] = await Promise.all([loadHostMemberships(), loadReports()]);
+      state.hostMemberships = hostMemberships;
+      state.reports = reports;
+      const membership = (session.hostMemberships || []).find((item) => item.status === 'active') || (session.hostMemberships || [])[0];
+      const host = state.hosts.find((item) => item.id === membership?.hostId);
+      if (!membership || !host) {
+        await logout();
+        return;
+      }
+      state.isHostMode = true;
+      state.isAdminMode = false;
+      state.activeHostId = host.id;
+    } else {
+      return;
+    }
+    setWorkspaceVisibility();
+    renderHostManager();
+    renderEventManager();
+    renderModeration();
+  }).catch(() => {
+    // Invalid or unavailable backend sessions must never unlock the workspace.
+  });
 
   return { startEditHost, renderHostManager, renderModeration };
 }
