@@ -1,5 +1,5 @@
 import { geocodeAddress, reverseGeocode, searchMontrealAddresses } from '../services/geocoding.js';
-import { appendAuditLog, loadHostMemberships, loadHostRequests, loadReports, moderateHostRequest, saveHosts, updateHostRequestStatus, updateReportStatus } from '../services/repository.js';
+import { appendAuditLog, loadHostMemberships, loadHostRequests, loadReports, moderateHostRequest, saveHosts, updateReportStatus } from '../services/repository.js';
 import { t } from '../i18n.js';
 import { login, logout, restoreSession } from '../services/auth.js';
 import { normalizeAddress, shortenAddress } from '../utils/address.js';
